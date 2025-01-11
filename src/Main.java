@@ -5,13 +5,10 @@ public class Main {
         DBManager dbManager = new DBManager();
         try {
             dbManager.CreateDB("myDB");
-        }
-        catch (Exception e) {
-            System.err.println(e);
-        }
-
-        try {
-            dbManager.UpdateTableDB("myDB","Employees.ntb",'C');
+            dbManager.SelectDB("myDB");
+            dbManager.UpdateTableDB("Employees",".ntb",'C');
+            dbManager.UpdateTableDB("Employees",".ntb",'D');
+            dbManager.DropDB("myDB");
         } catch (Exception e) {
             System.err.println(e);
         }

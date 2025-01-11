@@ -7,12 +7,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 public class DBManager implements DBManagerInterface {
     private final String dbPath = "C:\\NebulaDBStore\\";
     private String currentSelectedDatabase;
-    private List<String> databaseNames;
+    private List<String> databaseNames = new ArrayList<>();
 
     // maps all the tables in a particular database
     private HashMap<String, List<String>> dbTableDirectory;
@@ -65,6 +66,7 @@ public class DBManager implements DBManagerInterface {
             String dirPath = dbPath.concat("\\").concat(dbName);
             Path path = Paths.get(dirPath);
             Files.createDirectories(path);
+            return;
         }
         throw new Exception("Database "+dbName+" already exists");
     }
@@ -82,6 +84,7 @@ public class DBManager implements DBManagerInterface {
                 }
             }
             Files.delete(Paths.get(dirPath));
+            return;
         }
         throw new Exception("Database" + dbName + " does not exist");
     }
@@ -91,29 +94,40 @@ public class DBManager implements DBManagerInterface {
         if(dbTableDirectory.containsKey(dbname)){
             String dirPath = dbPath.concat("\\").concat(dbname);
             currentSelectedDatabase = dbname;
+            return;
         }
         throw new Exception("Cannot Select DB ,Database " + dbname + " does not exist");
     }
 
     @Override
-    public void UpdateTableDB(String databaseName, String tableName, char tableUpdateType) throws Exception {
+    public void UpdateTableDB(String tableName, String extension, char tableUpdateType) throws Exception {
         switch(tableUpdateType){
             case 'C':
-                if(this.dbTableDirectory.containsKey(databaseName)){
-                    List<String> tableNames = this.dbTableDirectory.get(databaseName);
+                if(this.dbTableDirectory.containsKey(currentSelectedDatabase)){
+                    List<String> tableNames = this.dbTableDirectory.get(currentSelectedDatabase);
                     for(String tblName : tableNames){
                         if(tblName.equals(tableName)){
                             throw new Exception("Table Name already exists");
                         }
                     }
+                    String tablePath = dbPath.concat("\\").concat(currentSelectedDatabase).concat("\\").concat(tableName).concat(extension);
+                    Files.createFile(Paths.get(tablePath));
+                    tableNames.add(tableName);
+                    dbTableDirectory.put(currentSelectedDatabase, tableNames);
                 }
                 break;
             case 'D':
-                if(this.dbTableDirectory.containsKey(databaseName)){
-                    List<String> tableNames = this.dbTableDirectory.get(databaseName);
-                    for(String tblName : tableNames){
+                if(this.dbTableDirectory.containsKey(currentSelectedDatabase)){
+                    List<String> tableNames = this.dbTableDirectory.get(currentSelectedDatabase);
+                    // using iterator as concurrent modification is not supported while directly iterating over the list
+                    Iterator<String> iterator = tableNames.iterator();
+                    while(iterator.hasNext()){
+                        String tblName = iterator.next();
                         if(tblName.equals(tableName)){
                             tableNames.remove(tableName);
+                            String tablePath = dbPath.concat("\\").concat(currentSelectedDatabase).concat("\\").concat(tableName).concat(extension);
+                            Files.delete(Paths.get(tablePath));
+                            return;
                         }
                     }
                     throw new Exception("No such table exists");
