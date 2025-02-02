@@ -6,6 +6,7 @@
 #define DBMANAGER_H
 #include <filesystem>
 #include <vector>
+#include "../headers/Logger.h"
 
 namespace StorageEngine {
 
@@ -15,6 +16,7 @@ private:
     std::filesystem::path currSelectedTablePath;
     const std::vector<std::filesystem::path> listAllDB() const;
     const std::vector<std::filesystem::path> listAllTables() const;
+    Utils::Logger* logger = Utils::Logger::getInstance();
 public:
     void showAllDB() const;
     void createDB(const std::string* db_name);

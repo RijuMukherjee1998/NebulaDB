@@ -4,14 +4,15 @@
 
 #include <algorithm>
 
-#include "dbmanager.h"
+#include "../headers/DBManager.h"
 
 #include <filesystem>
 #include <iostream>
 #include <queue>
 #include <vector>
 
-#include "../include/constants.h"
+#include "../headers/constants.h"
+#include "../headers/Logger.h"
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
 const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllDB() const
@@ -21,7 +22,6 @@ const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllDB() c
     {
         if (entry.is_directory())
         {
-            std::cout << entry.path() << std::endl;
             databases.emplace_back(entry.path());
         }
     }
@@ -32,7 +32,7 @@ const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllTables
     std::vector<std::filesystem::path> tables;
     if (currSelectedDBPath.empty())
     {
-        std::cout<< "No Database is selected" <<std::endl;
+        logger->logWarn({"No database selected"});
         return std::vector<std::filesystem::path>();
     }
 
@@ -49,31 +49,31 @@ void StorageEngine::DBManager::showAllDB() const
 {
     for (auto const& database : listAllDB())
     {
-        std::cout << database.filename() << std::endl;
+        logger->logInfo({"Database:" + database.string() + "(DB)"});
     }
 }
 
 void StorageEngine::DBManager::createDB(const std::string* db_name)
 {
-    std::string new_db_path = BASE_NDB_PATH +  *db_name;
+    std::string new_db_path =BASE_NDB_PATH +  *db_name;
     const std::filesystem::path db_name_fs = new_db_path;
     for (const std::vector<std::filesystem::path> databases = listAllDB(); auto const& entry : databases)
     {
         if (entry.compare(db_name_fs) == 0)
         {
-            std::cout << "Database Already exists" << std::endl;
+            logger->logWarn({"database with name", db_name_fs.string(),"already exists"});
             return;
         }
     }
     std::filesystem::create_directory(db_name_fs);
-    std::cout << "Database "<<db_name_fs<<" Created"<< std::endl;
+    logger->logInfo({"Created database", db_name_fs.string()});
 }
 
 void StorageEngine::DBManager::deleteDB(const std::string* db_name)
 {
     selectDB(db_name);
     if (currSelectedDBPath.empty())
-        std::cout<< "No Database of name "<<db_name->c_str()<<std::endl;
+        logger->logWarn({"No database with name", *db_name});
     else
     {
         std::filesystem::remove_all(currSelectedDBPath);
@@ -83,31 +83,31 @@ void StorageEngine::DBManager::deleteDB(const std::string* db_name)
 
 void StorageEngine::DBManager::selectDB(const std::string* db_name)
 {
-    std::string db_path = BASE_NDB_PATH +  *db_name;
+    std::string db_path =BASE_NDB_PATH +  *db_name;
     std::filesystem::path db_name_fs = db_path;
     for (const std::vector<std::filesystem::path> databases = listAllDB(); auto const& entry : databases)
     {
         if (entry.compare(db_name_fs) == 0)
         {
-            std::cout << "Database Found... Selecting Database" << std::endl;
+            logger->logInfo({"Database", *db_name});
             currSelectedDBPath = std::move(db_name_fs);
             return;
         }
     }
-    std::cout << "Database "<<*db_name<<" Not Found..." << std::endl;
+    logger->logWarn({"Database",*db_name,"not found"});
 }
 
 void StorageEngine::DBManager::showAllTables() const
 {
     if (currSelectedDBPath.empty())
     {
-        std::cout<< "No Database is selected" <<std::endl;
+        logger->logWarn({"No database selected"});
         return;
     }
-    std::cout<<"All Tables in DB: "<< currSelectedDBPath.filename()<<std::endl;
+    logger->logInfo({"All Tables in DB:",currSelectedDBPath.filename().string()});
     for (auto const& table : listAllTables())
     {
-        std::cout << table.filename()<<std::endl;
+        logger->logInfo({"Table", table.filename().string()});
     }
 }
 
@@ -116,7 +116,7 @@ void StorageEngine::DBManager::createTable(const std::string* table_name)
     std::vector<std::filesystem::path> tables = listAllTables();
     if (currSelectedDBPath.empty())
     {
-        std::cout<< "Cannot Create Table...No Database is selected" <<std::endl;
+        logger->logWarn({"Cannot Create Table...No Database is selected"});
         return;
     }
     std::filesystem::path  tbl_name_fs = *table_name;
@@ -125,25 +125,25 @@ void StorageEngine::DBManager::createTable(const std::string* table_name)
     {
         if (entry.compare(table_path) == 0)
         {
-            std::cout << "Table Already exists" << std::endl;
+            logger->logWarn({"Table", table_path.string()});
             return;
         }
     }
     std::filesystem::create_directory(table_path);
-    std::cout << "Table "<<table_path.filename()<<"Created"<< std::endl;
+    logger->logInfo({"Table", table_path.filename().string(),"Created"});
 }
 
 void StorageEngine::DBManager::deleteTable(const std::string* table_name)
 {
     if (currSelectedDBPath.empty())
     {
-        std::cout<< "Cannot Delete Table...No Database is selected" <<std::endl;
+        logger->logWarn({"Cannot Delete Table...No Database is selected"});
         return;
     }
     std::vector<std::filesystem::path> tables = listAllTables();
     if (tables.empty())
     {
-        std::cout<<"Cannot Delete Table , No tables in DB"<<std::endl;
+        logger->logWarn({"Cannot Delete Table...No Database is selected"});
         return;
     }
     std::filesystem::path  tbl_name_fs = *table_name;
@@ -151,25 +151,25 @@ void StorageEngine::DBManager::deleteTable(const std::string* table_name)
     {
         if (entry.filename().compare(tbl_name_fs) == 0)
         {
-            std::cout << "Table "<<tables.back().filename()<<"Deleted"<< std::endl;
+            logger->logInfo({"Table", tables.back().filename().string(),"Deleted"});
             std::filesystem::remove_all(entry);
             return;
         }
     }
-    std::cout<< "Cannot Delete Table "<<*table_name<<"Not Found..."<<std::endl;
+    logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
 }
 
 void StorageEngine::DBManager::selectTable(const std::string* table_name)
 {
     if (currSelectedDBPath.empty())
     {
-        std::cout<< "Cannot Select Table...No Database is selected" <<std::endl;
+        logger->logWarn({"Cannot Select Table...No Database is selected"});
         return;
     }
     std::vector<std::filesystem::path> tables = listAllTables();
     if (tables.empty())
     {
-        std::cout<<"Cannot Select Table , No tables in DB"<<std::endl;
+        logger->logWarn({"Cannot Select Table , No tables in DB"});
         return;
     }
     std::filesystem::path  tbl_name_fs = *table_name;
@@ -177,7 +177,7 @@ void StorageEngine::DBManager::selectTable(const std::string* table_name)
     {
         if (entry.filename().compare(tbl_name_fs) == 0)
         {
-            std::cout << "Table "<<tables.back().filename()<<" Selected"<< std::endl;
+            logger->logInfo({"Table", tables.back().filename().string(),"Selected"});
             currSelectedDBPath = std::move(tbl_name_fs);
         }
     }

@@ -1,5 +1,5 @@
 #include <iostream>
-#include "dbmanager/DBManager.h"
+#include "headers/DBManager.h"
 int main()
 {
     std::cout << "Hello, NebulaDB" << std::endl;

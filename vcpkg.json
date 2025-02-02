@@ -1,0 +1,18 @@
+{
+  "name" : "nebuladb",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "0ca64b4e1c70fa6d9f53b369b8f3f0843797c20c",
+  "dependencies" : [ {
+    "name" : "fmt",
+    "version>=" : "11.0.2#1"
+  }, {
+    "name" : "vcpkg-cmake-config",
+    "version>=" : "2024-05-23"
+  }, {
+    "name" : "vcpkg-cmake",
+    "version>=" : "2024-04-23"
+  }, {
+    "name" : "spdlog",
+    "version>=" : "1.15.0#1"
+  } ]
+}
