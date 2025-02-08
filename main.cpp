@@ -1,11 +1,16 @@
+//
+// Created by Riju Mukherjee on 31-01-2025.
+//
+
 #include <iostream>
 #include "headers/DBManager.h"
+
 int main()
 {
     try
     {
         std::cout << "Hello, NebulaDB" << std::endl;
-        StorageEngine::DBManager dbmanager;
+        Manager::DBManager dbmanager;
         dbmanager.showAllDB();
         std::string db_name = "test";
         std::string db_name1 = "test1";

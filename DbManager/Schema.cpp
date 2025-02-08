@@ -3,13 +3,8 @@
 //
 
 #include <utility>
-
-#include "../headers/Schema.h"
-
 #include <fstream>
-
-#include "../headers/Logger.h"
-
+#include "../headers/Schema.h"
 
 Schema::Schema(std::string tableName, std::vector<Column> columns)
 {

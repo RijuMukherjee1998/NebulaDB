@@ -3,9 +3,6 @@
 //
 
 #include "../headers/Logger.h"
-#include "../cmake-build-debug/vcpkg_installed/x64-mingw-dynamic/include/spdlog/spdlog.h"
-#include "../cmake-build-debug/vcpkg_installed/x64-mingw-dynamic/include/spdlog/sinks/basic_file_sink.h"
-#include "../headers/constants.h"
 
 Utils::Logger::Logger()
 {

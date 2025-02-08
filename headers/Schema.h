@@ -6,7 +6,6 @@
 #define SCHEMA_H
 #include <string>
 #include <nlohmann/json.hpp>
-
 #include "Logger.h"
 
 using json = nlohmann::json;
