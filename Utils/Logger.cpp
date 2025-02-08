@@ -16,6 +16,7 @@ Utils::Logger::Logger()
     console_sink->set_color(spdlog::level::info, 2047); //cyan
     console_sink->set_color(spdlog::level::warn, 65504); //yellow
     console_sink->set_color(spdlog::level::err, 63488); // red
+    console_sink->set_color(spdlog::level::critical, 9999);
     con_logger = std::make_shared<spdlog::logger>("ConsoleLogger",console_sink);
     spdlog::register_logger(file_logger);
     spdlog::register_logger(con_logger);
@@ -64,4 +65,14 @@ void Utils::Logger::logInfo(std::initializer_list<const std::string> msgs) const
     }
     con_logger->info(final_msg);
     file_logger->info(final_msg);
+}
+void Utils::Logger::logCritical(std::initializer_list<const std::string> msgs) const
+{
+    std::string final_msg;
+    for (const auto& msg : msgs)
+    {
+        final_msg += msg+" ";
+    }
+    con_logger->critical(final_msg);
+    file_logger->critical(final_msg);
 }

@@ -10,6 +10,8 @@ add_executable(NebulaDB main.cpp
         headers/DBManager.h
         headers/constants.h
         utils/Logger.cpp
-        headers/Logger.h)
+        headers/Logger.h
+        dbmanager/Schema.cpp
+        headers/Schema.h)
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)

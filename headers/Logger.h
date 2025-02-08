@@ -24,6 +24,7 @@ namespace Utils
         void logInfo(std::initializer_list<const std::string> msgs) const;
         void logWarn(std::initializer_list<const std::string> msgs) const;
         void logError(std::initializer_list<const std::string> msgs) const;
+        void logCritical(std::initializer_list<const std::string> msgs) const;
     };
 }
 

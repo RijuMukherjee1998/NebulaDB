@@ -7,15 +7,15 @@
 #include "../headers/DBManager.h"
 
 #include <filesystem>
-#include <iostream>
-#include <queue>
 #include <vector>
 
 #include "../headers/constants.h"
 #include "../headers/Logger.h"
+#include "../headers/Schema.h"
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
-const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllDB() const
+
+std::vector<std::filesystem::path> StorageEngine::DBManager::listAllDB() const
 {
     std::vector<std::filesystem::path> databases;
     for (auto const& entry : std::filesystem::directory_iterator(base_path))
@@ -27,7 +27,8 @@ const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllDB() c
     }
     return databases;
 }
-const std::vector<std::filesystem::path> StorageEngine::DBManager::listAllTables() const
+
+std::vector<std::filesystem::path> StorageEngine::DBManager::listAllTables() const
 {
     std::vector<std::filesystem::path> tables;
     if (currSelectedDBPath.empty())
@@ -53,7 +54,7 @@ void StorageEngine::DBManager::showAllDB() const
     }
 }
 
-void StorageEngine::DBManager::createDB(const std::string* db_name)
+void StorageEngine::DBManager::createDB(const std::string* db_name) const
 {
     std::string new_db_path =BASE_NDB_PATH +  *db_name;
     const std::filesystem::path db_name_fs = new_db_path;
@@ -83,7 +84,7 @@ void StorageEngine::DBManager::deleteDB(const std::string* db_name)
 
 void StorageEngine::DBManager::selectDB(const std::string* db_name)
 {
-    std::string db_path =BASE_NDB_PATH +  *db_name;
+    const std::string db_path =BASE_NDB_PATH +  *db_name;
     std::filesystem::path db_name_fs = db_path;
     for (const std::vector<std::filesystem::path> databases = listAllDB(); auto const& entry : databases)
     {
@@ -111,16 +112,16 @@ void StorageEngine::DBManager::showAllTables() const
     }
 }
 
-void StorageEngine::DBManager::createTable(const std::string* table_name)
+void StorageEngine::DBManager::createTable(const std::string* table_name, const Schema* schema) const
 {
-    std::vector<std::filesystem::path> tables = listAllTables();
+    const std::vector<std::filesystem::path> tables = listAllTables();
     if (currSelectedDBPath.empty())
     {
         logger->logWarn({"Cannot Create Table...No Database is selected"});
         return;
     }
-    std::filesystem::path  tbl_name_fs = *table_name;
-    std::filesystem::path table_path = currSelectedDBPath/tbl_name_fs;
+    const std::filesystem::path  tbl_name_fs = *table_name;
+    const std::filesystem::path table_path = currSelectedDBPath/tbl_name_fs;
     for (auto const& entry : tables)
     {
         if (entry.compare(table_path) == 0)
@@ -130,10 +131,11 @@ void StorageEngine::DBManager::createTable(const std::string* table_name)
         }
     }
     std::filesystem::create_directory(table_path);
+    schema->saveToFile(table_path);
     logger->logInfo({"Table", table_path.filename().string(),"Created"});
 }
 
-void StorageEngine::DBManager::deleteTable(const std::string* table_name)
+void StorageEngine::DBManager::deleteTable(const std::string* table_name) const
 {
     if (currSelectedDBPath.empty())
     {
@@ -146,7 +148,7 @@ void StorageEngine::DBManager::deleteTable(const std::string* table_name)
         logger->logWarn({"Cannot Delete Table...No Database is selected"});
         return;
     }
-    std::filesystem::path  tbl_name_fs = *table_name;
+    const std::filesystem::path  tbl_name_fs = *table_name;
     for (auto const& entry : tables)
     {
         if (entry.filename().compare(tbl_name_fs) == 0)
