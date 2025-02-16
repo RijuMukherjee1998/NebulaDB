@@ -14,6 +14,6 @@
 #endif
 
 #define TABLE_FILE_SIZE 1024*1024*1024; //1 GB per table file
-#define PAGE_SIZE (1024*4); // 4KB page size
-
+#define PAGE_SIZE 4096; // 4KB page size
+#define LOGICAL_OVERFLOW 262144
 #endif //CONSTANTS_H

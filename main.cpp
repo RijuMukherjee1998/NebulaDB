@@ -12,20 +12,12 @@ int main()
         std::cout << "Hello, NebulaDB" << std::endl;
         Manager::DBManager dbmanager;
         dbmanager.showAllDB();
-        std::string db_name = "test";
-        std::string db_name1 = "test1";
+        std::string db_name = "mydb";
         std::string tbl_name = "mytable";
         dbmanager.createDB(&db_name);
         dbmanager.showAllDB();
-        dbmanager.createDB(&db_name);
-        dbmanager.showAllDB();
-        dbmanager.createDB(&db_name1);
-        dbmanager.showAllDB();
-        dbmanager.selectDB(&db_name1);
-        dbmanager.deleteDB(&db_name1);
-        dbmanager.showAllDB();
-        dbmanager.deleteDB(&db_name1);
         dbmanager.selectDB(&db_name);
+
         Schema mySchema(tbl_name, {
             {"id", DataType::INT, true, false},
             {"name", DataType::STRING, false, false},
@@ -33,10 +25,8 @@ int main()
         });
         dbmanager.createTable(&tbl_name, &mySchema);
         dbmanager.showAllTables();
-        dbmanager.deleteTable(&tbl_name);
-        dbmanager.showAllTables();
-        dbmanager.createTable(&tbl_name, &mySchema);
         dbmanager.selectTable(&tbl_name);
+        dbmanager.insertIntoSelectedTable(&mySchema);
     }
     catch (std::exception &e)
     {

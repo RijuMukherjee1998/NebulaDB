@@ -7,9 +7,20 @@
 #include <vector>
 #include "../headers/DBManager.h"
 
+#include <fstream>
+
+#include "../headers/PageDirectory.h"
+#include "../headers/TableManager.h"
+
 const std::filesystem::path base_path = BASE_NDB_PATH;
 
-std::vector<std::filesystem::path> Manager::DBManager::listAllDB()
+Manager::DBManager::DBManager()
+{
+    logger = Utils::Logger::getInstance();
+    logger->logInfo({"DB Initialized"});
+}
+
+std::vector<std::filesystem::path> Manager::DBManager::listAllDB() const
 {
     std::vector<std::filesystem::path> databases;
     for (auto const& entry : std::filesystem::directory_iterator(base_path))
@@ -40,6 +51,7 @@ std::vector<std::filesystem::path> Manager::DBManager::listAllTables() const
     }
     return tables;
 }
+
 void Manager::DBManager::showAllDB() const
 {
     for (auto const& database : listAllDB())
@@ -108,24 +120,29 @@ void Manager::DBManager::showAllTables() const
 
 void Manager::DBManager::selectTable(const std::string* table_name)
 {
+    const std::filesystem::path  tbl_name_fs = *table_name;
     if (currSelectedDBPath.empty())
     {
         logger->logWarn({"Cannot Select Table...No Database is selected"});
         return;
     }
-    std::vector<std::filesystem::path> tables = listAllTables();
+    if (currSelectedTablePath == currSelectedDBPath/tbl_name_fs)
+    {
+        logger->logWarn({"Table already selected",*table_name});
+    }
+    const std::vector<std::filesystem::path> tables = listAllTables();
     if (tables.empty())
     {
         logger->logWarn({"Cannot Select Table , No tables in DB"});
         return;
     }
-    std::filesystem::path  tbl_name_fs = *table_name;
     for (auto const& entry : tables)
     {
         if (entry.filename().compare(tbl_name_fs) == 0)
         {
             logger->logInfo({"Table", tables.back().filename().string(),"Selected"});
-            currSelectedDBPath = std::move(tbl_name_fs);
+            currSelectedTablePath = std::move(currSelectedDBPath/tbl_name_fs);
+            logger->logInfo({"Curr Table Path = ",currSelectedTablePath.string()});
         }
     }
 }
@@ -150,6 +167,13 @@ void Manager::DBManager::createTable(const std::string* table_name, const Schema
     }
     std::filesystem::create_directory(table_path);
     schema->saveToFile(table_path);
+    // create the page dir file for that table
+    std::ofstream pgdirFile(table_path/"pgdir.dat");
+    if (!pgdirFile)
+    {
+        logger->logCritical({"Could not create file page-directory.dat"});
+        throw std::runtime_error("Could not create file page-directory.dat");
+    }
     logger->logInfo({"Table", table_path.filename().string(),"Created"});
 }
 
@@ -177,4 +201,10 @@ void Manager::DBManager::deleteTable(const std::string* table_name) const
         }
     }
     logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
+}
+
+void Manager::DBManager::insertIntoSelectedTable(const Schema* schema) const
+{
+    TableManager table_manager(currSelectedDBPath,currSelectedTablePath);
+    table_manager.insertIntoTable();
 }
