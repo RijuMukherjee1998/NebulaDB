@@ -8,6 +8,7 @@
 
 Schema::Schema(std::string tableName, std::vector<Column> columns)
 {
+    this->schema_name = tableName;
     this->tableName = std::move(tableName);
     this->columns = std::move(columns);
     logger = Utils::Logger::getInstance();

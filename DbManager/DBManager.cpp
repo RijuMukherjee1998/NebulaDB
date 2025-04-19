@@ -20,6 +20,13 @@ Manager::DBManager::DBManager()
     logger->logInfo({"DB Initialized"});
 }
 
+Manager::DBManager::~DBManager()
+{
+    logger->logInfo({"DB shutdown Initiated"});
+    shutdownDB();
+    logger->logInfo({"DB shutdown Completed"});
+}
+
 std::vector<std::filesystem::path> Manager::DBManager::listAllDB() const
 {
     std::vector<std::filesystem::path> databases;
@@ -104,7 +111,7 @@ void Manager::DBManager::selectDB(const std::string* db_name)
     logger->logWarn({"Database",*db_name,"not found"});
 }
 
-void Manager::DBManager::shutdownDB(const std::string* db_name)
+void Manager::DBManager::shutdownDB() const
 {
     table_manager->flushAll();
 }
@@ -230,14 +237,14 @@ void Manager::DBManager::insertIntoSelectedTable(int i, std::string n, int a) co
     columns.push_back(name);
     columns.push_back(age);
     table_manager->insertIntoTable(columns);
-    logger->logInfo({"Value Inserted in table"});
+    logger->logInfo({"Value Inserted in table", std::to_string(i)});
 }
 
 void Manager::DBManager::selectAllFromSelectedTable(Schema& schema) const {
     auto table = new std::vector<std::unique_ptr<char[]>>();
     table_manager->selectAllFromTable(table, 14); //for now, fixing it for simplicity and testing
 
-    const std::filesystem::path file_path = currSelectedTablePath/"person.json";
+    const std::filesystem::path file_path = currSelectedTablePath/(schema.schema_name+".json");
     json schema_json = schema.loadFromFile(file_path);
     logger->logInfo({"Table::",schema_json["table_name"]});
     std::string col_names;

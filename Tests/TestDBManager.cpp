@@ -30,7 +30,7 @@ protected:
    }
 
    void TearDown() override {
-      testDBManager.shutdownDB(&db_name);
+      testDBManager.shutdownDB();
    }
 };
 TEST(DBMANAGER_FUNC, CREATE_DB)
@@ -90,13 +90,12 @@ TEST(TABLE_FUNC, INSERT_INTO_DB)
    EXPECT_NO_THROW(testDBManager.selectTable(&tbl_name));
    EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "C:\\ndb\\testdb\\test");
    EXPECT_NO_THROW(testDBManager.insertIntoSelectedTable(id, name, age));
-   EXPECT_NO_THROW(testDBManager.shutdownDB(&db_name));
+   EXPECT_NO_THROW(testDBManager.shutdownDB());
 }
 
-// Will add this test once we have cleaned out the code from fixed declaration currently used for testing
-// TEST(TABLE_FUNC, SELECTALLFROMTABLE)
-// {
-//    Schema sch = testSchema;
-//    EXPECT_NO_THROW(testDBManager.selectAllFromSelectedTable(sch));
-//    EXPECT_NO_THROW(testDBManager.shutdownDB(&db_name));
-// }
+TEST(TABLE_FUNC, SELECTALLFROMTABLE)
+{
+   Schema sch = testSchema;
+   EXPECT_NO_THROW(testDBManager.selectAllFromSelectedTable(sch));
+   EXPECT_NO_THROW(testDBManager.shutdownDB());
+}

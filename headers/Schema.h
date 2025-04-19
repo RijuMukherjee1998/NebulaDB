@@ -41,6 +41,7 @@ struct Column
 };
 class Schema {
 public:
+    std::string schema_name;
     Schema(std::string tableName, std::vector<Column> columns);
     void saveToFile(const std::filesystem::path& table_path) const;
     json loadFromFile(const std::filesystem::path& filePath);

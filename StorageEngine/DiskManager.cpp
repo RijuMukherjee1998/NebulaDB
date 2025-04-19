@@ -16,7 +16,11 @@ namespace StorageEngine
         const std::filesystem::path page_name = std::to_string(file_id) + ".ntb";
         const std::filesystem::path page_file_path =  currTablePath/page_name;
         std::lock_guard<std::recursive_mutex>file_lock(file_mut);
-        std::ofstream outFile(page_file_path, std::ios::binary | std::ios::out);
+        if (!std::filesystem::exists(page_file_path)) {
+            std::ofstream createFile(page_file_path, std::ios::binary);
+            createFile.close();
+        }
+        std::ofstream outFile(page_file_path, std::ios::binary | std::ios::in | std::ios::out);
         if (!outFile.is_open())
         {
             logger->logCritical({"Write failed ... Unable to open file"});

@@ -34,11 +34,12 @@ namespace Manager {
         TableManager* table_manager;
     public:
         DBManager();
+        ~DBManager();
         void showAllDB() const;
         void createDB(const std::string* db_name) const;
         void deleteDB(const std::string* db_name);
         void selectDB(const std::string* dbname);
-        void shutdownDB(const std::string* dbname);
+        void shutdownDB() const;
 
         void showAllTables() const;
         void selectTable(const std::string* table_name);

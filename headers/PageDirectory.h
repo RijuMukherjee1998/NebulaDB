@@ -19,7 +19,7 @@ namespace StorageEngine
         uint64_t logicalPage = 0;
         uint32_t fileId = 0;
         uint64_t pageOffset = 0;
-        uint16_t freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
+        uint16_t freeSpace = PAGE_SIZE - sizeof(PageHeader);
         bool exists = false;
     };
     // struct PDEntryHash

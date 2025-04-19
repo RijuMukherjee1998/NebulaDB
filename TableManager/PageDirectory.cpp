@@ -42,6 +42,7 @@ void StorageEngine::PageDirectory::updateOnInsert(const uint16_t data_size)
         (*pd_map)[currentLogicalPage].freeSpace -= (data_size + sizeof(Slot));
         return;
     }
+    //throw std::runtime_error("Page full ... ");
     if (findFreeSpace((data_size + sizeof(Slot)), currentLogicalPage))
     {
         (*pd_map)[currentLogicalPage].freeSpace -= (data_size + sizeof(Slot));

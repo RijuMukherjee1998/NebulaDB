@@ -14,8 +14,8 @@ int main()
         std::cout << "Hello, NebulaDB" << std::endl;
         Manager::DBManager dbmanager;
         dbmanager.showAllDB();
-        const std::string db_name = "mydb";
-        const std::string tbl_name = "person";
+        const std::string db_name = "PersonsDB";
+        const std::string tbl_name = "persons";
         dbmanager.createDB(&db_name);
         dbmanager.showAllDB();
         dbmanager.selectDB(&db_name);
@@ -28,12 +28,17 @@ int main()
         dbmanager.createTable(&tbl_name, &mySchema);
         dbmanager.showAllTables();
         dbmanager.selectTable(&tbl_name);
-        // int id = 1;
-        // int age = 25;
-        // dbmanager.insertIntoSelectedTable(id, "Riju", age);
+        int id = 1;
+        int age = 25;
+        while (id <= 100000)
+        {
+            dbmanager.insertIntoSelectedTable(id, "Riju", age);
+            id++;
+            age++;
+            age = age % 100;
+        }
         Schema sch = mySchema;
         dbmanager.selectAllFromSelectedTable(sch);
-        dbmanager.shutdownDB(&db_name);
     }
     catch (std::exception &e)
     {

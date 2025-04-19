@@ -37,7 +37,7 @@ namespace StorageEngine
             if (page == nullptr)
             {
                 page = std::make_shared<Page>();
-                disk_manager->writePageToDisk(pde.fileId, pde.pageOffset, page);
+                //disk_manager->writePageToDisk(pde.fileId, pde.pageOffset, page);
             }
             page_cache->emplace(logical_id, std::move(page));
         }
@@ -59,7 +59,10 @@ namespace StorageEngine
         (*page_cache)[logical_id]->dirty = true;
 
         if (dirty_page_count >= DIRTY_PAGE_TOLERANCE)
+        {
             flushDirtyPages();
+            dirty_page_count = 0;
+        }
     }
 
     void PageCache::flushDirtyPages()
