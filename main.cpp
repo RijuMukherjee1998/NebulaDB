@@ -4,6 +4,8 @@
 
 #include <iostream>
 #include "headers/DBManager.h"
+#include <chrono>
+#include <thread>
 
 int main()
 {
@@ -12,13 +14,13 @@ int main()
         std::cout << "Hello, NebulaDB" << std::endl;
         Manager::DBManager dbmanager;
         dbmanager.showAllDB();
-        std::string db_name = "mydb";
-        std::string tbl_name = "mytable";
+        const std::string db_name = "mydb";
+        const std::string tbl_name = "person";
         dbmanager.createDB(&db_name);
         dbmanager.showAllDB();
         dbmanager.selectDB(&db_name);
 
-        Schema mySchema(tbl_name, {
+        const Schema mySchema(tbl_name, {
             {"id", DataType::INT, true, false},
             {"name", DataType::STRING, false, false},
             {"age", DataType::INT, false, false},
@@ -26,7 +28,12 @@ int main()
         dbmanager.createTable(&tbl_name, &mySchema);
         dbmanager.showAllTables();
         dbmanager.selectTable(&tbl_name);
-        dbmanager.insertIntoSelectedTable(&mySchema);
+        // int id = 1;
+        // int age = 25;
+        // dbmanager.insertIntoSelectedTable(id, "Riju", age);
+        Schema sch = mySchema;
+        dbmanager.selectAllFromSelectedTable(sch);
+        dbmanager.shutdownDB(&db_name);
     }
     catch (std::exception &e)
     {

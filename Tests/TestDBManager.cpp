@@ -10,6 +10,29 @@ std::string db_name = "testdb";
 std::string db_name_1 = "testdb1";
 std::string tbl_name = "test";
 
+class DBManagerTest : public ::testing::Test {
+protected:
+   Manager::DBManager testDBManager;
+   std::string db_name = "testdb";
+   std::string tbl_name = "test";
+
+   Schema testSchema = Schema(tbl_name, {
+       {"id", DataType::INT, true, false},
+       {"name", DataType::STRING, false, false},
+       {"age", DataType::INT, false, false}
+   });
+
+   void SetUp() override {
+      testDBManager.createDB(&db_name);
+      testDBManager.selectDB(&db_name);
+      testDBManager.createTable(&tbl_name, &testSchema);
+      testDBManager.selectTable(&tbl_name);
+   }
+
+   void TearDown() override {
+      testDBManager.shutdownDB(&db_name);
+   }
+};
 TEST(DBMANAGER_FUNC, CREATE_DB)
 {
    EXPECT_NO_THROW(testDBManager.createDB(&db_name));
@@ -46,3 +69,34 @@ TEST(DBMANAGER_FUNC, DELETE_DB)
 {
    testDBManager.deleteDB(&db_name_1);
 }
+
+int id = 1;
+std::string name = "test1";
+int age = 18;
+Schema testSchema(tbl_name, {
+        {"id", DataType::INT, true, false},
+        {"name", DataType::STRING, false, false},
+        {"age", DataType::INT, false, false},
+    });
+TEST(TABLE_FUNC, INSERT_INTO_DB)
+{
+   EXPECT_NO_THROW(testDBManager.createDB(&db_name));
+   EXPECT_NO_THROW(testDBManager.showAllDB());
+   EXPECT_NO_THROW(testDBManager.selectDB(&db_name));
+   EXPECT_EQ(testDBManager.getCurrSelectedDBPath().string(), "C:\\ndb\\testdb");
+
+   EXPECT_NO_THROW(testDBManager.createTable(&tbl_name, &testSchema));
+   EXPECT_NO_THROW(testDBManager.showAllTables());
+   EXPECT_NO_THROW(testDBManager.selectTable(&tbl_name));
+   EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "C:\\ndb\\testdb\\test");
+   EXPECT_NO_THROW(testDBManager.insertIntoSelectedTable(id, name, age));
+   EXPECT_NO_THROW(testDBManager.shutdownDB(&db_name));
+}
+
+// Will add this test once we have cleaned out the code from fixed declaration currently used for testing
+// TEST(TABLE_FUNC, SELECTALLFROMTABLE)
+// {
+//    Schema sch = testSchema;
+//    EXPECT_NO_THROW(testDBManager.selectAllFromSelectedTable(sch));
+//    EXPECT_NO_THROW(testDBManager.shutdownDB(&db_name));
+// }

@@ -9,7 +9,8 @@
 
 #include "Schema.h"
 #include "Logger.h"
-#include "constants.h"
+#include "TableManager.h"
+
 
 namespace Manager {
 
@@ -30,18 +31,21 @@ namespace Manager {
         std::vector<std::filesystem::path> listAllDB() const;
         std::vector<std::filesystem::path> listAllTables() const;
         Utils::Logger* logger;
+        TableManager* table_manager;
     public:
         DBManager();
         void showAllDB() const;
         void createDB(const std::string* db_name) const;
         void deleteDB(const std::string* db_name);
         void selectDB(const std::string* dbname);
+        void shutdownDB(const std::string* dbname);
 
         void showAllTables() const;
         void selectTable(const std::string* table_name);
         void createTable(const std::string* table_name, const Schema* schema) const;
         void deleteTable(const std::string* table_name) const;
-        void insertIntoSelectedTable(const Schema* schema) const;
+        void insertIntoSelectedTable(int i, std::string n, int a) const;
+        void selectAllFromSelectedTable(Schema& schema) const;
     };
 
 } // Manager

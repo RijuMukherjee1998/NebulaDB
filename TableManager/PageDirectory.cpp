@@ -6,7 +6,7 @@
 
 #include <fstream>
 #include <iostream>
-#include <unordered_set>
+#include <unordered_map>
 StorageEngine::PageDirectory::PageDirectory(const std::filesystem::path& selectedDBPath, const std::filesystem::path& selectedTablePath)
 {
     currSelectedDBPath = selectedDBPath;
@@ -20,7 +20,7 @@ StorageEngine::PageDirectory::PageDirectory(const std::filesystem::path& selecte
 StorageEngine::PDEntry StorageEngine::PageDirectory::lookUpPage(const uint64_t logicalPage) const
 {
     PDEntry entry;
-    if (!pd_map->contains(logicalPage))
+    if (!pd_map->contains(logicalPage) || (*pd_map)[logicalPage].exists == false)
     {
         logger->logError({"No entry in pde"});
         return entry;
@@ -31,36 +31,38 @@ StorageEngine::PDEntry StorageEngine::PageDirectory::lookUpPage(const uint64_t l
 
 void StorageEngine::PageDirectory::updateOnInsert(const uint16_t data_size)
 {
-    uint16_t pg_size = PAGE_SIZE;
-    if (data_size > pg_size)
+    if (data_size > PAGE_SIZE)
     {
         logger->logError({"Entry too big for DB"});
         return;
     }
     changeCounter++;
-    if ((*pd_map)[currentLogicalPage].freeSpace >= data_size)
+    if ((*pd_map)[currentLogicalPage].freeSpace >= (data_size + sizeof(Slot)))
     {
-        (*pd_map)[currentLogicalPage].freeSpace -= data_size;
+        (*pd_map)[currentLogicalPage].freeSpace -= (data_size + sizeof(Slot));
         return;
     }
-    if (findFreeSpace(data_size, currentLogicalPage))
+    if (findFreeSpace((data_size + sizeof(Slot)), currentLogicalPage))
     {
-        (*pd_map)[currentLogicalPage].freeSpace -= data_size;
+        (*pd_map)[currentLogicalPage].freeSpace -= (data_size + sizeof(Slot));
         return;
     }
+    //throw std::runtime_error("Hurray found point");
     PDEntry lastLogicalEntry = (*pd_map)[currentLogicalPage];
     currentLogicalPage += 1;
     PDEntry newEntry;
     newEntry.logicalPage = currentLogicalPage;
     newEntry.fileId = static_cast<uint32_t>(currentLogicalPage / LOGICAL_OVERFLOW);
-    newEntry.pageOffset = lastLogicalEntry.pageOffset + pg_size;
-    newEntry.freeSpace -= data_size;
+    newEntry.pageOffset = lastLogicalEntry.pageOffset + PAGE_SIZE;
+    newEntry.freeSpace -= (data_size + sizeof(Slot));
     newEntry.exists = true;
     (*pd_map)[currentLogicalPage] = newEntry;
+    savePageDirectory(true);
 }
 void StorageEngine::PageDirectory::updateOnDelete(const uint64_t logical_page, const uint16_t data_size) const
 {
-    if ((*pd_map)[logical_page].freeSpace == 4096)
+    uint16_t pg_size = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
+    if ((*pd_map)[logical_page].freeSpace == pg_size)
     {
         logger->logError({"Weird logical page already free"});
         return;
@@ -69,7 +71,7 @@ void StorageEngine::PageDirectory::updateOnDelete(const uint64_t logical_page, c
 }
 bool StorageEngine::PageDirectory::findFreeSpace(const uint16_t data_size, uint64_t& logicalPage) const
 {
-    uint16_t pg_size = PAGE_SIZE;
+    uint16_t pg_size = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
     for (const auto& entry : *pd_map)
     {
         if (entry.second.freeSpace == pg_size)
@@ -93,15 +95,29 @@ void StorageEngine::PageDirectory::savePageDirectory(bool forcedSave)
 
 void StorageEngine::PageDirectory::loadPageDirectory()
 {
+    if (!std::filesystem::exists(pgDirPath))
+    {
+        logger->logInfo({"Page Directory Not Found ... Clean Table ... Adding pgdir.dat"});
+        PDEntry entry;
+        entry.logicalPage = 0;
+        entry.fileId = 0;
+        entry.pageOffset = 0;
+        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
+        entry.exists = true;
+        (*pd_map)[currentLogicalPage] = entry;
+        serialize();
+        return;
+    }
+
     std::vector<StorageEngine::PDEntry> entries = deserialize();
     setCurrentLogicalPage(entries);
-    if (entries.size() == 0)
+    if (entries.empty())
     {
         PDEntry entry;
         entry.logicalPage = 0;
         entry.fileId = 0;
         entry.pageOffset = 0;
-        entry.freeSpace = 4096;
+        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
         entry.exists = true;
         (*pd_map)[currentLogicalPage] = entry;
     }

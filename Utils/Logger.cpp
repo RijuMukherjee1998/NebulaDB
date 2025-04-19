@@ -3,21 +3,33 @@
 //
 
 #include "../headers/Logger.h"
-
+#include "../headers/constants.h"
+#include <iostream>
+#include <filesystem>
 Utils::Logger::Logger()
 {
-    file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(LOG_PATH);
-    file_logger = std::make_shared<spdlog::logger>("FileLogger",file_sink);
-    console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    // Set the color for different log levels
-    console_sink->set_color(spdlog::level::info, 2047); //cyan
-    console_sink->set_color(spdlog::level::warn, 65504); //yellow
-    console_sink->set_color(spdlog::level::err, 63488); // red
-    console_sink->set_color(spdlog::level::critical, 9999);
-    con_logger = std::make_shared<spdlog::logger>("ConsoleLogger",console_sink);
-    spdlog::register_logger(file_logger);
-    spdlog::register_logger(con_logger);
-    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    try
+    {
+        std::filesystem::create_directories("C:\\ndb\\logs");
+        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(R"(C:\ndb\logs\logs.txt)");
+        file_logger = std::make_shared<spdlog::logger>("FileLogger",file_sink);
+        console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        // Set the color for different log levels
+        console_sink->set_color(spdlog::level::info, 2047); //cyan
+        console_sink->set_color(spdlog::level::warn, 65504); //yellow
+        console_sink->set_color(spdlog::level::err, 63488); // red
+        console_sink->set_color(spdlog::level::critical, 9999);
+        con_logger = std::make_shared<spdlog::logger>("ConsoleLogger",console_sink);
+        spdlog::register_logger(file_logger);
+        spdlog::register_logger(con_logger);
+        spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+    }
+    catch (const spdlog::spdlog_ex::spdlog_ex::exception ex)
+    {
+        std::cerr << "Logger initialization failed: " << ex.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
 }
 Utils::Logger* Utils::Logger::getInstance()
 {

@@ -10,6 +10,7 @@
 
 #include "Logger.h"
 #include "ISerializable.h"
+#include "Page.h"
 
 namespace StorageEngine
 {
@@ -18,12 +19,8 @@ namespace StorageEngine
         uint64_t logicalPage = 0;
         uint32_t fileId = 0;
         uint64_t pageOffset = 0;
-        uint16_t freeSpace = PAGE_SIZE;
+        uint16_t freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
         bool exists = false;
-        // bool operator == (const PDEntry& rhs) const
-        // {
-        //     return logicalPage == rhs.logicalPage;
-        // }
     };
     // struct PDEntryHash
     // {
@@ -41,9 +38,8 @@ namespace StorageEngine
         Utils::Logger* logger;
         std::unique_ptr<std::unordered_map<uint64_t, StorageEngine::PDEntry>> pd_map;
         uint16_t changeCounter = 0;
-        uint64_t currentLogicalPage = 0;
     public:
-        uint64_t currLogicalId = 0;
+        uint64_t currentLogicalPage = 0;
         PageDirectory(const std::filesystem::path& selectedDBPath, const std::filesystem::path& selectedTablePath);
         void loadPageDirectory() ;
         StorageEngine::PDEntry lookUpPage(uint64_t) const;

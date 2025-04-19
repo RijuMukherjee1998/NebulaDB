@@ -4,9 +4,12 @@
 
 #ifndef SCHEMA_H
 #define SCHEMA_H
+#include <any>
 #include <string>
 #include <nlohmann/json.hpp>
 #include "Logger.h"
+#include <vector>
+#include <filesystem>
 
 using json = nlohmann::json;
 enum class DataType
@@ -25,6 +28,7 @@ struct Column
     DataType col_type;
     bool is_primary_key = false;
     bool is_null = false;
+    std::any col_value;
 
     json toJson() const {
         return {
@@ -39,6 +43,7 @@ class Schema {
 public:
     Schema(std::string tableName, std::vector<Column> columns);
     void saveToFile(const std::filesystem::path& table_path) const;
+    json loadFromFile(const std::filesystem::path& filePath);
 private:
     Utils::Logger* logger;
     std::string tableName;

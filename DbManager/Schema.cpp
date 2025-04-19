@@ -24,6 +24,23 @@ json Schema::toJson() const
     return j;
 }
 
+json Schema::loadFromFile(const std::filesystem::path& filePath)
+{
+    if (!std::filesystem::exists(filePath))
+    {
+        throw std::runtime_error("Schema file does not exist: " + filePath.string());
+    }
+
+    std::ifstream file(filePath);
+    if (!file)
+    {
+        throw std::runtime_error("Unable to open file: " + filePath.string());
+    }
+
+    json j;
+    file >> j;
+    return j;
+}
 void Schema::saveToFile(const std::filesystem::path& table_path) const
 {
     const std::filesystem::path file_name = (tableName + ".json");
