@@ -31,7 +31,8 @@ namespace Manager {
         std::vector<std::filesystem::path> listAllDB() const;
         std::vector<std::filesystem::path> listAllTables() const;
         Utils::Logger* logger;
-        TableManager* table_manager;
+        std::unordered_map<std::string, TableManager*> table_manager_table;
+        TableManager* curr_table_manager;
     public:
         DBManager();
         ~DBManager();
@@ -43,10 +44,10 @@ namespace Manager {
 
         void showAllTables() const;
         void selectTable(const std::string* table_name);
-        void createTable(const std::string* table_name, const Schema* schema) const;
+        void createTable(const std::string* table_name, const Schema* schema);
         void deleteTable(const std::string* table_name) const;
-        void insertIntoSelectedTable(int i, std::string n, int a) const;
-        void selectAllFromSelectedTable(Schema& schema) const;
+        void insertIntoSelectedTable(std::vector<Column>& columns) const;
+        void selectAllFromSelectedTable() const;
     };
 
 } // Manager

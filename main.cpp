@@ -4,8 +4,6 @@
 
 #include <iostream>
 #include "headers/DBManager.h"
-#include <chrono>
-#include <thread>
 
 int main()
 {
@@ -30,15 +28,36 @@ int main()
         dbmanager.selectTable(&tbl_name);
         int id = 1;
         int age = 25;
+        std::string name = "Riju";
+        std::vector<Column> columns;
+        Column ID;
+        ID.col_name = "id";
+        ID.col_type = DataType::INT;
+        ID.col_value = id;
+        ID.is_primary_key = true;
+        ID.is_null = false;
+        Column NAME;
+        NAME.col_name = "name";
+        NAME.col_type = DataType::STRING;
+        NAME.col_value = name;
+        Column AGE;
+        AGE.col_name = "age";
+        AGE.col_type = DataType::INT;
+        AGE.col_value = age;
         while (id <= 100000)
         {
-            dbmanager.insertIntoSelectedTable(id, "Riju", age);
+            columns.push_back(ID);
+            columns.push_back(NAME);
+            columns.push_back(AGE);
+            dbmanager.insertIntoSelectedTable(columns);
             id++;
             age++;
             age = age % 100;
+            ID.col_value = id;
+            AGE.col_value = age;
+            columns.clear();
         }
-        Schema sch = mySchema;
-        dbmanager.selectAllFromSelectedTable(sch);
+        dbmanager.selectAllFromSelectedTable();
     }
     catch (std::exception &e)
     {

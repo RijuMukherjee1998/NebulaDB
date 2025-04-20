@@ -26,6 +26,7 @@ add_executable(NebulaDB main.cpp
         StorageEngine/DiskManager.cpp
         headers/DiskManager.h
         StorageEngine/Page.cpp
+        headers/Column.h
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)
@@ -55,6 +56,7 @@ add_executable(run_tests
         headers/DiskManager.h
         headers/Page.h
         headers/PageCache.h
+        headers/Column.h
 )
 target_link_libraries(run_tests
         PRIVATE

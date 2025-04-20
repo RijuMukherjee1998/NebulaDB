@@ -10,11 +10,12 @@
 #include "../headers/Schema.h"
 #include "../headers/Page.h"
 #include "../headers/PageCache.h"
-Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath)
+Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, const Schema* schema):
+    tSchema(*schema)
 {
     this->currSelectedDBPath = currSelectedDBPath;
     this->currSelectedTablePath = currSelectedTablePath;
-    pageDirectory = new StorageEngine::PageDirectory(currSelectedDBPath,currSelectedTablePath);
+    pageDirectory = new StorageEngine::PageDirectory(currSelectedDBPath, currSelectedTablePath);
     pageCache = new StorageEngine::PageCache(currSelectedTablePath, pageDirectory);
     logger = Utils::Logger::getInstance();
     pageDirectory->loadPageDirectory();
@@ -54,14 +55,17 @@ void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
 }
 
 
-void Manager::TableManager::selectAllFromTable(std::vector<std::unique_ptr<char[]>>* rows, const size_t row_size) const
+void Manager::TableManager::selectAllFromTable() const
 {
+    const auto rows = new std::vector<std::unique_ptr<char[]>>();
     const uint64_t currLogicalPageId = pageDirectory->currentLogicalPage;
     for (int i=0; i<= currLogicalPageId; i++)
     {
         const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
-        currPage->getAllDataFromPage(rows, row_size);
+        currPage->getAllDataFromPage(rows);
     }
+    // These functions will be put in the client side later.
+    printTableData(rows);
 }
 
 void Manager::TableManager::flushAll() const

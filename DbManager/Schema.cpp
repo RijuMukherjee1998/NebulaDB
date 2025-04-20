@@ -25,23 +25,48 @@ json Schema::toJson() const
     return j;
 }
 
-json Schema::loadFromFile(const std::filesystem::path& filePath)
+json Schema::loadFromFile(const std::filesystem::path& filePath) const
 {
     if (!std::filesystem::exists(filePath))
     {
-        throw std::runtime_error("Schema file does not exist: " + filePath.string());
+        logger->logCritical({"Unable to find file: ", filePath.string()});
     }
 
     std::ifstream file(filePath);
     if (!file)
     {
-        throw std::runtime_error("Unable to open file: " + filePath.string());
+        logger->logCritical({"Unable to open schema file: ", filePath.string()});
     }
 
     json j;
     file >> j;
     return j;
 }
+
+Schema* Schema::loadFromFileSchema(const std::filesystem::path& filePath)
+{
+    static Utils::Logger* logger = Utils::Logger::getInstance();
+    if (!std::filesystem::exists(filePath))
+    {
+        logger->logCritical({"Unable to find file: ", filePath.string()});
+    }
+    std::ifstream file(filePath);
+    if (!file)
+    {
+        logger->logCritical({"Unable to open schema file: ", filePath.string()});
+    }
+    json j;
+    file >> j;
+    std::string table_name = j["table_name"];
+    std::vector<Column> columns;
+    for (const auto& column : j["columns"])
+    {
+        columns.push_back(Column(column["col_name"], column["col_type"], column["is_primary_key"]
+            ,column["is_null"]));
+    }
+    return new Schema(table_name, columns);
+}
+
 void Schema::saveToFile(const std::filesystem::path& table_path) const
 {
     const std::filesystem::path file_name = (tableName + ".json");
@@ -63,6 +88,3 @@ void Schema::saveToFile(const std::filesystem::path& table_path) const
         throw std::runtime_error("Unable to create file");
     }
 }
-
-
-

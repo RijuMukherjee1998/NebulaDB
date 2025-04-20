@@ -84,4 +84,5 @@ void Utils::Logger::logCritical(std::initializer_list<const std::string> msgs) c
     }
     con_logger->critical(final_msg);
     file_logger->critical(final_msg);
+    throw std::runtime_error("Critical Error ... Exiting");
 }

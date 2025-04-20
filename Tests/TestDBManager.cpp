@@ -89,13 +89,30 @@ TEST(TABLE_FUNC, INSERT_INTO_DB)
    EXPECT_NO_THROW(testDBManager.showAllTables());
    EXPECT_NO_THROW(testDBManager.selectTable(&tbl_name));
    EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "C:\\ndb\\testdb\\test");
-   EXPECT_NO_THROW(testDBManager.insertIntoSelectedTable(id, name, age));
+   std::vector<Column> testColumns;
+   Column ID;
+   ID.col_name = "id";
+   ID.col_type = DataType::INT;
+   ID.col_value = id;
+   ID.is_primary_key = true;
+   ID.is_null = false;
+   Column NAME;
+   NAME.col_name = "name";
+   NAME.col_type = DataType::STRING;
+   NAME.col_value = name;
+   Column AGE;
+   AGE.col_name = "age";
+   AGE.col_type = DataType::INT;
+   AGE.col_value = age;
+   testColumns.push_back(ID);
+   testColumns.push_back(NAME);
+   testColumns.push_back(AGE);
+   EXPECT_NO_THROW(testDBManager.insertIntoSelectedTable(testColumns));
    EXPECT_NO_THROW(testDBManager.shutdownDB());
 }
 
 TEST(TABLE_FUNC, SELECTALLFROMTABLE)
 {
    Schema sch = testSchema;
-   EXPECT_NO_THROW(testDBManager.selectAllFromSelectedTable(sch));
-   EXPECT_NO_THROW(testDBManager.shutdownDB());
+   EXPECT_NO_THROW(testDBManager.selectAllFromSelectedTable());
 }

@@ -7,44 +7,18 @@
 #include <any>
 #include <string>
 #include <nlohmann/json.hpp>
-#include "Logger.h"
 #include <vector>
 #include <filesystem>
+#include "Logger.h"
+#include "Column.h"
 
-using json = nlohmann::json;
-enum class DataType
-{
-    BOOLEAN,
-    CHAR,
-    SHORT,
-    INT,
-    FLOAT,
-    STRING,
-};
-
-struct Column
-{
-    std::string col_name;
-    DataType col_type;
-    bool is_primary_key = false;
-    bool is_null = false;
-    std::any col_value;
-
-    json toJson() const {
-        return {
-                {"col_name", col_name},
-                {"col_type", col_type},
-                {"is_primary_key", is_primary_key},
-                {"is_null", is_null}
-        };
-    }
-};
 class Schema {
 public:
     std::string schema_name;
     Schema(std::string tableName, std::vector<Column> columns);
     void saveToFile(const std::filesystem::path& table_path) const;
-    json loadFromFile(const std::filesystem::path& filePath);
+    json loadFromFile(const std::filesystem::path& filePath) const;
+    static Schema* loadFromFileSchema(const std::filesystem::path& filePath);
 private:
     Utils::Logger* logger;
     std::string tableName;

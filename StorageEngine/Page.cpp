@@ -95,12 +95,12 @@ namespace StorageEngine
         slot_it->isSlotValid = false;
     }
 
-    void Page::getAllDataFromPage(std::vector<std::unique_ptr<char[]>>* rows, const size_t row_size) const
+    void Page::getAllDataFromPage(std::vector<std::unique_ptr<char[]>>* rows) const
     {
         for (const auto& slot : slots)
         {
-            auto row = std::make_unique<char[]>(row_size);
-            std::memset(row.get(), 0, row_size);
+            auto row = std::make_unique<char[]>(slot.length);
+            std::memset(row.get(), 0, slot.length);
             char* buffer = row.get();
             if (slot.isSlotValid)
             {

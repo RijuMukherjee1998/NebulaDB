@@ -14,7 +14,7 @@
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
 
-Manager::DBManager::DBManager()
+Manager::DBManager::DBManager():curr_table_manager(nullptr)
 {
     logger = Utils::Logger::getInstance();
     logger->logInfo({"DB Initialized"});
@@ -69,7 +69,7 @@ void Manager::DBManager::showAllDB() const
 
 void Manager::DBManager::createDB(const std::string* db_name) const
 {
-    std::string new_db_path =BASE_NDB_PATH +  *db_name;
+    const std::string new_db_path =BASE_NDB_PATH +  *db_name;
     const std::filesystem::path db_name_fs = new_db_path;
     for (const std::vector<std::filesystem::path> databases = listAllDB(); auto const& entry : databases)
     {
@@ -113,7 +113,8 @@ void Manager::DBManager::selectDB(const std::string* db_name)
 
 void Manager::DBManager::shutdownDB() const
 {
-    table_manager->flushAll();
+    if (curr_table_manager != nullptr)
+        curr_table_manager->flushAll();
 }
 void Manager::DBManager::showAllTables() const
 {
@@ -156,10 +157,19 @@ void Manager::DBManager::selectTable(const std::string* table_name)
             logger->logInfo({"Curr Table Path = ",currSelectedTablePath.string()});
         }
     }
-    table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath);
+    if (table_manager_table.find(*table_name) != table_manager_table.end())
+    {
+        table_manager_table[*table_name] = curr_table_manager;
+    }
+    else
+    {
+        const Schema* sch = Schema::loadFromFileSchema(currSelectedTablePath/(tbl_name_fs.string()+".json"));
+        curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, sch);
+        table_manager_table[*table_name] = curr_table_manager;
+    }
 }
 
-void Manager::DBManager::createTable(const std::string* table_name, const Schema* schema) const
+void Manager::DBManager::createTable(const std::string* table_name, const Schema* schema)
 {
     const std::vector<std::filesystem::path> tables = listAllTables();
     if (currSelectedDBPath.empty())
@@ -179,13 +189,15 @@ void Manager::DBManager::createTable(const std::string* table_name, const Schema
     }
     std::filesystem::create_directory(table_path);
     schema->saveToFile(table_path);
-    // create the page dir file for that table (don't create it here it causes issue
-    // std::ofstream pgdirFile(table_path/"pgdir.dat");
-   /* if (!pgdirFile)
+    if (table_manager_table.find(*table_name) == table_manager_table.end())
     {
-        logger->logCritical({"Could not create file page-directory.dat"});
-        throw std::runtime_error("Could not create file page-directory.dat");
-    }*/
+        curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, schema);
+        table_manager_table[*table_name] = curr_table_manager;
+    }
+    else
+    {
+        logger->logCritical({"Weird Error...Table already exists in table_manager_table"});
+    }
     logger->logInfo({"Table", table_path.filename().string(),"Created"});
 }
 
@@ -215,123 +227,22 @@ void Manager::DBManager::deleteTable(const std::string* table_name) const
     logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
 }
 
-void Manager::DBManager::insertIntoSelectedTable(int i, std::string n, int a) const
+void Manager::DBManager::insertIntoSelectedTable(std::vector<Column>& columns) const
 {
-
-    std::vector<Column> columns;
-    Column id;
-    id.col_name = "id";
-    id.col_type = DataType::INT;
-    id.col_value = i;
-    id.is_primary_key = true;
-    id.is_null = false;
-    Column name;
-    name.col_name = "name";
-    name.col_type = DataType::STRING;
-    name.col_value = n;
-    Column age;
-    age.col_name = "age";
-    age.col_type = DataType::INT;
-    age.col_value = a;
-    columns.push_back(id);
-    columns.push_back(name);
-    columns.push_back(age);
-    table_manager->insertIntoTable(columns);
-    logger->logInfo({"Value Inserted in table", std::to_string(i)});
+    if (curr_table_manager == nullptr)
+    {
+        logger->logCritical({"No table selected"});
+        return;
+    }
+    curr_table_manager->insertIntoTable(columns);
+    logger->logInfo({"Value Inserted in table"});
 }
 
-void Manager::DBManager::selectAllFromSelectedTable(Schema& schema) const {
-    auto table = new std::vector<std::unique_ptr<char[]>>();
-    table_manager->selectAllFromTable(table, 14); //for now, fixing it for simplicity and testing
-
-    const std::filesystem::path file_path = currSelectedTablePath/(schema.schema_name+".json");
-    json schema_json = schema.loadFromFile(file_path);
-    logger->logInfo({"Table::",schema_json["table_name"]});
-    std::string col_names;
-    std::vector<Column> row;
-    for (const auto& col : schema_json["columns"])
+void Manager::DBManager::selectAllFromSelectedTable() const {
+    if (curr_table_manager == nullptr)
     {
-        Column column;
-        column.col_name = col["col_name"];
-        column.col_type = col["col_type"];
-        column.col_value = 0;
-        column.is_primary_key = col["is_primary_key"];
-        column.is_null = col["is_null"];
-        std::string colName = col["col_name"];
-        col_names += colName + "    ";
-        row.push_back(column);
+        logger->logCritical({"No table selected"});
+        return;
     }
-    logger->logInfo({col_names});
-
-    std::vector<std::vector<Column>> rows;
-    for(auto& row_data : *table)
-    {
-        char* buffer_ptr = row_data.get();
-        std::string print_data;
-        for(auto col : row)
-        {
-            DataType dt = col.col_type;
-            uint16_t data_size = 0;
-            switch(dt)
-            {
-            case DataType::INT:
-                data_size = sizeof(int);
-                int iValue;
-                std::memcpy(&iValue, buffer_ptr, data_size);
-                col.col_value = iValue;
-                print_data += std::to_string(iValue)+"    ";
-                buffer_ptr += data_size;
-                break;
-            case DataType::SHORT:
-                data_size = sizeof(short);
-                short sValue;
-                std::memcpy(&sValue, buffer_ptr, data_size);
-                col.col_value = sValue;
-                print_data += std::to_string(sValue)+"    ";
-                buffer_ptr += data_size;
-                break;
-            case DataType::CHAR:
-                data_size = sizeof(char);
-                char cValue;
-                std::memcpy(&cValue, buffer_ptr, data_size);
-                col.col_value = cValue;
-                print_data += std::to_string(cValue)+"    ";
-                buffer_ptr += data_size;
-                break;
-            case DataType::FLOAT:
-                data_size = sizeof(float);
-                float fValue;
-                std::memcpy(&fValue, buffer_ptr, data_size);
-                col.col_value = fValue;
-                print_data += std::to_string(fValue)+"    ";
-                buffer_ptr += data_size;
-                break;
-            case DataType::BOOLEAN:
-                data_size = sizeof(bool);
-                bool bValue;
-                std::memcpy(&bValue, buffer_ptr, data_size);
-                col.col_value = bValue;
-                print_data += std::to_string(bValue)+"    ";
-                buffer_ptr += data_size;
-                break;
-            case DataType::STRING:
-                {
-                    int str_size;
-                    std::memcpy(&str_size, buffer_ptr, 2);
-                    buffer_ptr += 2;
-                    data_size = str_size;
-                    std::string strValue(buffer_ptr, data_size);
-                    col.col_value = strValue;
-                    print_data += strValue+"    ";
-                    buffer_ptr += data_size;
-                    break;
-                }
-            default:
-               throw std::runtime_error("Invalid DataType");
-            }
-
-        }
-        logger->logInfo({print_data});
-    }
-    logger->logInfo({"________________________________"});
+    curr_table_manager->selectAllFromTable();
 }

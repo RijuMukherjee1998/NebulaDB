@@ -48,7 +48,7 @@ namespace StorageEngine
         void insertIntoPage(const std::vector<char>* new_data, uint16_t new_data_len);
         void updateIntoPage(uint16_t slot_idx, std::vector<char>* new_data, uint16_t new_data_len);
         void deleteFromPage(uint16_t slot_idx);
-        void getAllDataFromPage(std::vector<std::unique_ptr<char[]>>* rows, size_t row_size) const;
+        void getAllDataFromPage(std::vector<std::unique_ptr<char[]>>* rows) const;
 
     };
 }
