@@ -56,15 +56,15 @@ namespace Manager
             const std::type_info& columnType = column.col_value.type();
             if (columnType == typeid(bool))
                 total_bytes += sizeof(bool);
-            if (columnType == typeid(char))
+            else if (columnType == typeid(char))
                 total_bytes += sizeof(char);
-            if (columnType == typeid(short))
+            else if (columnType == typeid(short))
                 total_bytes += sizeof(short);
-            if (columnType == typeid(int))
+            else if (columnType == typeid(int))
                 total_bytes += sizeof(int);
-            if (columnType == typeid(float))
+            else if (columnType == typeid(float))
                 total_bytes += sizeof(float);
-            if (columnType == typeid(std::string))
+            else if (columnType == typeid(std::string))
                 total_bytes += strlen(std::any_cast<std::string>(column.col_value).c_str()) + 2; //2 bytes added to store length of string
         }
 

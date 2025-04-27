@@ -41,7 +41,7 @@ namespace StorageEngine
         std::ifstream inFile(page_file_path, std::ios::binary | std::ios::in);
         if (!inFile.is_open())
         {
-            logger->logCritical({"Read failed ... Unable to open file"});
+            logger->logWarn({"Read failed ... Unable to open file"});
             return nullptr;
         }
         inFile.seekg(pg_offset);

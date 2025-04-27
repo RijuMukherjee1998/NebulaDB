@@ -27,6 +27,8 @@ add_executable(NebulaDB main.cpp
         headers/DiskManager.h
         StorageEngine/Page.cpp
         headers/Column.h
+        headers/ThreadPool.h
+        Utils/ThreadPool.cpp
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)

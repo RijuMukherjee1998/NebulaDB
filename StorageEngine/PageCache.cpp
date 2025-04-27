@@ -6,18 +6,19 @@
 
 #include "../headers/PageCache.h"
 #include "../headers/DiskManager.h"
+#include "../headers/ThreadPool.h"
 namespace StorageEngine
 {
     PageCache::PageCache(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory): currTablePath(currTablePath)
     {
         this->pageDirectory = pageDirectory;
-        page_cache = std::make_unique<std::unordered_map<uint64_t, std::shared_ptr<StorageEngine::Page>>>();
-        lru_list = std::make_unique<std::deque<uint64_t>>();
+        page_cache = std::make_shared<std::unordered_map<uint64_t, std::shared_ptr<StorageEngine::Page>>>();
+        lru_list = std::make_shared<std::deque<uint64_t>>();
         logger = Utils::Logger::getInstance();
-        disk_manager = std::make_unique<DiskManager>(currTablePath);
+        disk_manager = std::make_shared<DiskManager>(currTablePath);
     }
 
-    std::shared_ptr<Page> PageCache::getPageFromCache(const uint64_t logical_id) const
+    std::shared_ptr<Page> PageCache::getPageFromCache(const uint64_t logical_id)
     {
         if (page_cache->empty() || page_cache->find(logical_id) == page_cache->end())
         {
@@ -54,7 +55,6 @@ namespace StorageEngine
             logger->logCritical({"Page can't be marked dirty Weird, page dosen't exists in cache"});
             return;
         }
-        std::lock_guard<std::recursive_mutex> cache_lock(cache_mtx);
         dirty_page_count += 1;
         (*page_cache)[logical_id]->dirty = true;
 
@@ -67,20 +67,19 @@ namespace StorageEngine
 
     void PageCache::flushDirtyPages()
     {
+        std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
         for (const auto& it : *page_cache)
         {
             if (it.second->dirty)
             {
-                std::lock_guard<std::recursive_mutex> cache_lock(cache_mtx);
                 it.second->dirty = false;
                 const PDEntry pde =  pageDirectory->lookUpPage(it.first);
                 disk_manager->writePageToDisk(pde.fileId, pde.pageOffset, it.second);
             }
         }
-
     }
 
-    void StorageEngine::PageCache::updateLRU(const uint64_t logical_id) const
+    void StorageEngine::PageCache::updateLRU(const uint64_t logical_id)
     {
         if (lru_list->empty())
         {
@@ -89,12 +88,24 @@ namespace StorageEngine
         }
         if (lru_list->size() == MAX_PAGES_IN_CACHE)
         {
-            if (const std::shared_ptr<Page> page = page_cache->at(lru_list->back()); page->dirty)
-            {
-                const PDEntry pde =  pageDirectory->lookUpPage(lru_list->back());
-                disk_manager->writePageToDisk(pde.fileId, pde.pageOffset, page);
+            std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
+            const uint64_t back_key = lru_list->back();
+            const auto it = page_cache->find(back_key);
+            std::shared_ptr<Page> page_copy = nullptr;
+            if (it != page_cache->end()) {
+                page_copy = it->second;
+                page_cache->erase(it);
             }
-            page_cache->erase(lru_list->back());
+            if (page_copy != nullptr && page_copy->dirty)
+            {
+                logger->logInfo({"Found page ... Going for a write"});
+                const PDEntry pde =  pageDirectory->lookUpPage(lru_list->back());
+                auto disk_manager_copy = disk_manager;
+                ThreadPool::getInstance()->enqueue([disk_manager_copy, page_copy, pde]
+                {
+                    disk_manager_copy->writePageToDisk(pde.fileId, pde.pageOffset, page_copy);
+                });
+            }
             lru_list->pop_back();
             lru_list->push_front(logical_id);
             return;

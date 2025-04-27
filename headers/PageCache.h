@@ -15,21 +15,21 @@
 namespace StorageEngine
 {
     class PageCache {
-        std::recursive_mutex cache_mtx;
+        std::recursive_mutex pg_cache_mtx;
         Utils::Logger* logger;
-        std::unique_ptr<std::unordered_map<uint64_t, std::shared_ptr<StorageEngine::Page>>> page_cache;
+        std::shared_ptr<std::unordered_map<uint64_t, std::shared_ptr<StorageEngine::Page>>> page_cache;
         PageDirectory* pageDirectory;
-        std::unique_ptr<std::deque<uint64_t>> lru_list{};
+        std::shared_ptr<std::deque<uint64_t>> lru_list{};
         const std::filesystem::path& currTablePath;
         uint16_t dirty_page_count = 0;
-        std::unique_ptr<DiskManager> disk_manager;
+        std::shared_ptr<DiskManager> disk_manager;
         void loadPageIntoCache(uint64_t logical_id) const;
 
-        void updateLRU(uint64_t) const;
+        void updateLRU(uint64_t);
 
     public:
         PageCache(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory);
-        std::shared_ptr<Page> getPageFromCache(uint64_t logical_id) const;
+        std::shared_ptr<Page> getPageFromCache(uint64_t logical_id);
         void flushDirtyPages();
         void markPageDirty(uint64_t logical_id);
 

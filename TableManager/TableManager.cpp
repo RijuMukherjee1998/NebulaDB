@@ -26,7 +26,7 @@ void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
     uint16_t totalBytes = 0;
     if (currSelectedTablePath.empty())
     {
-        logger->logError({"Table is not selected"});
+        logger->logCritical({"Table is not selected"});
         return;
     }
     for (const auto& column : columns)

@@ -159,7 +159,7 @@ void Manager::DBManager::selectTable(const std::string* table_name)
     }
     if (table_manager_table.find(*table_name) != table_manager_table.end())
     {
-        table_manager_table[*table_name] = curr_table_manager;
+        curr_table_manager = table_manager_table[*table_name];
     }
     else
     {
@@ -191,7 +191,7 @@ void Manager::DBManager::createTable(const std::string* table_name, const Schema
     schema->saveToFile(table_path);
     if (table_manager_table.find(*table_name) == table_manager_table.end())
     {
-        curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, schema);
+        curr_table_manager = new TableManager(currSelectedDBPath,table_path, schema);
         table_manager_table[*table_name] = curr_table_manager;
     }
     else
