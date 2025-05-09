@@ -52,6 +52,7 @@ void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
     const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(currLogicalPageId);
     currPage->insertIntoPage(currBufferPtr, totalBytes);
     pageCache->markPageDirty(currLogicalPageId);
+    pageCache->unPinPage(currLogicalPageId);
 }
 
 
@@ -63,6 +64,7 @@ void Manager::TableManager::selectAllFromTable() const
     {
         const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
         currPage->getAllDataFromPage(rows);
+        pageCache->unPinPage(i);
     }
     // These functions will be put in the client side later.
     printTableData(rows);

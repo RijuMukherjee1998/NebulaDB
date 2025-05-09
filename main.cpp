@@ -33,8 +33,16 @@ std::string random_string(const size_t min_len, const size_t max_len, bool nums 
     const size_t length = length_dist(rng);
     std::string result;
     result.reserve(length);
-    for (size_t i = 0; i < length; ++i)
-        result += chars[char_dist(rng)];
+    if (!nums)
+    {
+        for (size_t i = 0; i < length; ++i)
+            result += chars[char_dist(rng)];
+    }
+    else
+    {
+        for (size_t i = 0; i < length; ++i)
+            result += nums_chars[char_dist(rng)];
+    }
     return result;
 }
 
@@ -93,7 +101,7 @@ int main()
         // columns.push_back(AGE);
         // columns.push_back(AADHAR_ID);
         // dbmanager.insertIntoSelectedTable(columns);
-        while (id <= 1000000)
+        while (id <= 10000000)
         {
             columns.clear();
             columns.push_back(SNO);

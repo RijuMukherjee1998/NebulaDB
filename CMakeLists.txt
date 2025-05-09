@@ -29,6 +29,7 @@ add_executable(NebulaDB main.cpp
         headers/Column.h
         headers/ThreadPool.h
         Utils/ThreadPool.cpp
+        headers/LRUK.h
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)
@@ -43,6 +44,7 @@ add_executable(run_tests
         Dbmanager/dbmanager.cpp
         Dbmanager/Schema.cpp
         Utils/Logger.cpp
+        Utils/ThreadPool.cpp
         TableManager/TableManager.cpp
         TableManager/PageDirectory.cpp
         StorageEngine/Page.cpp                  # ✅ add this
@@ -59,6 +61,9 @@ add_executable(run_tests
         headers/Page.h
         headers/PageCache.h
         headers/Column.h
+        headers/LRUK.h
+        headers/ThreadPool.h
+        Tests/TestLRUK.cpp
 )
 target_link_libraries(run_tests
         PRIVATE

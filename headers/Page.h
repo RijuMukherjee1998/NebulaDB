@@ -33,6 +33,8 @@ namespace StorageEngine
         std::list<Slot> slots;
         char page_data[PAGE_SIZE];
         const uint16_t data_container_size = PAGE_SIZE;
+        std::atomic<int> pin_count = 0;
+
     public:
         bool dirty = false;
         Page()

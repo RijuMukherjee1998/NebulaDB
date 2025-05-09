@@ -57,7 +57,7 @@ namespace StorageEngine
         {
             /*This is always not an error as you have to understand that after a new PDE the page is never added to the
               buffer so the page at this offset dosen't exist have to handle it in a better way will think about it later*/
-            logger->logCritical({"Read failed ... Unable to read the entire buffer" , page_file_path.string()});
+            logger->logWarn({"Read failed ... Unable to read the entire buffer" , page_file_path.string()});
             return nullptr;
         }
         return std::move(convertBufferToPage(page_buffer));
