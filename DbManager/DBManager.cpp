@@ -11,6 +11,7 @@
 
 #include "../headers/PageDirectory.h"
 #include "../headers/TableManager.h"
+#include "../headers/constants.h"
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
 

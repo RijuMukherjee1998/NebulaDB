@@ -30,6 +30,7 @@ add_executable(NebulaDB main.cpp
         headers/ThreadPool.h
         Utils/ThreadPool.cpp
         headers/LRUK.h
+        headers/BPlusTree.h
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)
@@ -64,6 +65,8 @@ add_executable(run_tests
         headers/LRUK.h
         headers/ThreadPool.h
         Tests/TestLRUK.cpp
+        headers/BPlusTree.h
+        Tests/TestBPlusTree.cpp
 )
 target_link_libraries(run_tests
         PRIVATE

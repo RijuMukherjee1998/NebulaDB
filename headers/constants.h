@@ -5,13 +5,12 @@
 #define CONSTANTS_H
 
 #include <string>
-#ifdef WIN32
-    const std::string BASE_NDB_PATH = "C:\\ndb\\";
-    const std::string LOG_PATH = "C:\\ndb\\logs.log";
-#elif LINUX
-    const std::string DB_FILE_PATH = "/usr/local/ndb/";
-    const std::string LOG_PATH = "/usr/local/ndb/logs/logs.log";
-#endif
+const std::string BASE_NDB_PATH = "C:\\ndb\\";
+const std::string LOG_PATH = "C:\\ndb\\logs.log";
+// #elif LINUX
+//     const std::string DB_FILE_PATH = "/usr/local/ndb/";
+//     const std::string LOG_PATH = "/usr/local/ndb/logs/logs.log";
+// #endif
 
 #define TABLE_FILE_SIZE 1024*1024*1024; //1 GB per table file
 constexpr int PAGE_SIZE = 4096;  // 4KB page size
