@@ -101,7 +101,7 @@ int main()
         // columns.push_back(AGE);
         // columns.push_back(AADHAR_ID);
         // dbmanager.insertIntoSelectedTable(columns);
-        while (id <= 10000000)
+        while (id <= 2048)
         {
             columns.clear();
             columns.push_back(SNO);

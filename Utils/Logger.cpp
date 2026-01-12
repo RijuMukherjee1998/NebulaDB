@@ -6,19 +6,21 @@
 #include "../headers/constants.h"
 #include <iostream>
 #include <filesystem>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 Utils::Logger::Logger()
 {
     try
     {
-        std::filesystem::create_directories("C:\\ndb\\logs");
-        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(R"(C:\ndb\logs\logs.txt)");
+        std::filesystem::create_directories(LOG_DIR_PATH);
+        file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(LOG_PATH);
         file_logger = std::make_shared<spdlog::logger>("FileLogger",file_sink);
         console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         // Set the color for different log levels
-        console_sink->set_color(spdlog::level::info, 2047); //cyan
-        console_sink->set_color(spdlog::level::warn, 65504); //yellow
-        console_sink->set_color(spdlog::level::err, 63488); // red
-        console_sink->set_color(spdlog::level::critical, 9999);
+        console_sink->set_color(spdlog::level::info, "\033[36m" ); //cyan
+        console_sink->set_color(spdlog::level::warn, "\033[33m"); //yellow
+        console_sink->set_color(spdlog::level::err, "\033[31m"); // red
+        console_sink->set_color(spdlog::level::critical, "\033[1;31m");
         con_logger = std::make_shared<spdlog::logger>("ConsoleLogger",console_sink);
         spdlog::register_logger(file_logger);
         spdlog::register_logger(con_logger);
