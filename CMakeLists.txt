@@ -8,27 +8,27 @@ set(CMAKE_CXX_STANDARD 23)
 
 find_package(spdlog CONFIG REQUIRED)
 add_executable(NebulaDB main.cpp
-        dbmanager/dbmanager.cpp
+        DbManager/DBManager.cpp
+        DbManager/Schema.cpp
+        TableManager/TableManager.cpp
+        TableManager/PageDirectory.cpp
+        StorageEngine/PageCache.cpp
+        StorageEngine/DiskManager.cpp
+        StorageEngine/Page.cpp
+        Utils/ThreadPool.cpp
+        Utils/Logger.cpp
         headers/DBManager.h
         headers/constants.h
-        utils/Logger.cpp
         headers/Logger.h
-        dbmanager/Schema.cpp
         headers/Schema.h
-        TableManager/TableManager.cpp
         headers/TableManager.h
-        TableManager/PageDirectory.cpp
         headers/PageDirectory.h
         headers/ISerializable.h
         headers/Page.h
-        StorageEngine/PageCache.cpp
         headers/PageCache.h
-        StorageEngine/DiskManager.cpp
         headers/DiskManager.h
-        StorageEngine/Page.cpp
         headers/Column.h
         headers/ThreadPool.h
-        Utils/ThreadPool.cpp
         headers/LRUK.h
         headers/BPlusTree.h
 )
@@ -40,10 +40,8 @@ target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)
 find_package(GTest REQUIRED)
 find_package(spdlog REQUIRED)
 add_executable(run_tests
-        Tests/TestDBManager.cpp
-        Tests/TestPageDirectory.cpp
-        Dbmanager/dbmanager.cpp
-        Dbmanager/Schema.cpp
+        DbManager/DBManager.cpp
+        DbManager/Schema.cpp
         Utils/Logger.cpp
         Utils/ThreadPool.cpp
         TableManager/TableManager.cpp
@@ -64,8 +62,10 @@ add_executable(run_tests
         headers/Column.h
         headers/LRUK.h
         headers/ThreadPool.h
-        Tests/TestLRUK.cpp
         headers/BPlusTree.h
+        Tests/TestLRUK.cpp
+        Tests/TestDBManager.cpp
+        Tests/TestPageDirectory.cpp
         Tests/TestBPlusTree.cpp
 )
 target_link_libraries(run_tests
@@ -76,12 +76,6 @@ target_link_libraries(run_tests
         fmt::fmt
 )
 
-#if (ENABLE_ASAN AND MSVC)
-#    message(STATUS "ASan enabled")
-#    target_compile_options(run_tests PRIVATE /fsanitize=address)
-#    link_directories("C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/Llvm/lib/clang/19/lib/windows")
-#    target_link_libraries(run_tests PRIVATE clang_rt.asan-x86_64.lib)
-#endif()
 # Enable testing
 enable_testing()
 add_test(NAME run_tests COMMAND run_tests)

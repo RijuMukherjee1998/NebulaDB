@@ -4,8 +4,8 @@
 #include <gtest/gtest.h>
 #include "../headers/PageDirectory.h"
 
-std::filesystem::path db_path = "C:\\ndb\\testdb";
-std::filesystem::path table_path = R"(C:\ndb\testdb\test)";
+std::filesystem::path db_path = "/var/tmp/ndb/testdb";
+std::filesystem::path table_path = R"(/var/tmp/ndb/testdb/test)";
 StorageEngine::PageDirectory page_directory(db_path,table_path);
 uint16_t data_size = 4096;
 

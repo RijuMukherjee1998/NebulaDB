@@ -2,11 +2,11 @@
 // Created by Riju Mukherjee on 02-02-2025.
 //
 
-#include "../headers/Logger.h"
-#include "../headers/constants.h"
 #include <iostream>
 #include <filesystem>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include "../headers/Logger.h"
+#include "../headers/constants.h"
 
 Utils::Logger::Logger()
 {
@@ -26,9 +26,21 @@ Utils::Logger::Logger()
         spdlog::register_logger(con_logger);
         spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
     }
-    catch (const spdlog::spdlog_ex::spdlog_ex::exception ex)
+    catch (const std::filesystem::filesystem_error& e)
     {
-        std::cerr << "Logger initialization failed: " << ex.what() << std::endl;
+        std::cerr << "Logger filesystem error\n"
+                  << "Path: " << e.path1() << "\n"
+                  << "Error: " << e.code().message() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    catch (const spdlog::spdlog_ex& e)
+    {
+        std::cerr << "spdlog error: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Logger init std::exception: " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
 

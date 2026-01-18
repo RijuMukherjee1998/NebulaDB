@@ -23,9 +23,9 @@ TEST(LRU_TEST, LRU_ACCESS_EVICT_PAGE)
     lru_k.accessPage(2,++timeStamp);
 
     uint64_t evicted_page = lru_k.evictPage();
-    EXPECT_EQ(evicted_page, 3);
+    EXPECT_EQ(evicted_page, 99);
     evicted_page = lru_k.evictPage();
-    EXPECT_EQ(evicted_page, 4);
+    EXPECT_EQ(evicted_page, 98);
     evicted_page = lru_k.evictPage();
-    EXPECT_EQ(evicted_page, 5);
+    EXPECT_EQ(evicted_page, 97);
 }

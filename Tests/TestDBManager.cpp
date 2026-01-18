@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include "../headers/DBManager.h"
 
+
 Manager::DBManager testDBManager;
 std::string db_name = "testdb";
 std::string db_name_1 = "testdb1";
@@ -45,7 +46,7 @@ TEST(DBMANAGER_FUNC, SHOW_ALL_DB)
 TEST(DBMANAGER_FUNC, SELECT_DB)
 {
    EXPECT_NO_THROW(testDBManager.selectDB(&db_name));
-   EXPECT_EQ(testDBManager.getCurrSelectedDBPath().string(), "C:\\ndb\\testdb");
+   EXPECT_EQ(testDBManager.getCurrSelectedDBPath().string(), "/var/tmp/ndb/testdb");
 }
 TEST(DBMANAGER_FUNC, CREATE_TABLE)
 {
@@ -63,7 +64,7 @@ TEST(DBMANAGER_FUNC, SHOW_ALL_TABLES)
 TEST(DBMANAGER_FUNC, SELECT_TABLE)
 {
    EXPECT_NO_THROW(testDBManager.selectTable(&tbl_name));
-   EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "C:\\ndb\\testdb\\test");
+   EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "/var/tmp/ndb/testdb/test");
 }
 TEST(DBMANAGER_FUNC, DELETE_DB)
 {
@@ -83,12 +84,12 @@ TEST(TABLE_FUNC, INSERT_INTO_DB)
    EXPECT_NO_THROW(testDBManager.createDB(&db_name));
    EXPECT_NO_THROW(testDBManager.showAllDB());
    EXPECT_NO_THROW(testDBManager.selectDB(&db_name));
-   EXPECT_EQ(testDBManager.getCurrSelectedDBPath().string(), "C:\\ndb\\testdb");
+   EXPECT_EQ(testDBManager.getCurrSelectedDBPath().string(), "/var/tmp/ndb/testdb");
 
    EXPECT_NO_THROW(testDBManager.createTable(&tbl_name, &testSchema));
    EXPECT_NO_THROW(testDBManager.showAllTables());
    EXPECT_NO_THROW(testDBManager.selectTable(&tbl_name));
-   EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "C:\\ndb\\testdb\\test");
+   EXPECT_EQ(testDBManager.getCurrSelectedTablePath().string(), "/var/tmp/ndb/testdb/test");
    std::vector<Column> testColumns;
    Column ID;
    ID.col_name = "id";
