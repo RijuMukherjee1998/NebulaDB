@@ -36,11 +36,13 @@ namespace StorageEngine
         std::filesystem::path currSelectedTablePath;
         std::filesystem::path pgDirPath;
         Utils::Logger* logger;
-        std::unique_ptr<std::unordered_map<uint64_t, StorageEngine::PDEntry>> pd_map;
+        std::unique_ptr<std::unordered_map<uint64_t, StorageEngine::PDEntry>>  pd_map;
         uint16_t changeCounter = 0;
     public:
-        uint64_t currentLogicalPage = 0;
         PageDirectory(const std::filesystem::path& selectedDBPath, const std::filesystem::path& selectedTablePath);
+        static uint64_t getCurrentLogicalPage() {
+            return currentLogicalPage;
+        }
         void loadPageDirectory() ;
         StorageEngine::PDEntry lookUpPage(uint64_t) const;
         void updateOnInsert(const uint16_t);
@@ -53,8 +55,10 @@ namespace StorageEngine
         void serialize() override;
         std::vector<PDEntry> deserialize() override;
     private:
-        void setCurrentLogicalPage(std::vector<PDEntry>& entries)
+        static uint64_t currentLogicalPage;
+        static void setCurrentLogicalPage(const std::vector<PDEntry>& entries)
         {
+            currentLogicalPage = 0;
             for (const auto& entry : entries)
             {
                 if (entry.logicalPage >= currentLogicalPage)

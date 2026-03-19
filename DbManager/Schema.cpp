@@ -61,8 +61,8 @@ Schema* Schema::loadFromFileSchema(const std::filesystem::path& filePath)
     std::vector<Column> columns;
     for (const auto& column : j["columns"])
     {
-        columns.push_back(Column(column["col_name"], column["col_type"], column["is_primary_key"]
-            ,column["is_null"]));
+        columns.push_back(Column(column["col_id"],column["col_name"], column["col_type"], column["is_primary_key"]
+            ,column["is_null"], column["is_indexed"]));
     }
     return new Schema(table_name, columns);
 }
@@ -86,5 +86,20 @@ void Schema::saveToFile(const std::filesystem::path& table_path) const
     {
         logger->logCritical({"Unable to create ",tableName,".json file"});
         throw std::runtime_error("Unable to create file");
+    }
+}
+
+void Schema::updateSchemaFile(const std::filesystem::path& table_path) const {
+    const std::filesystem::path file_name = (tableName + ".json");
+    const std::filesystem::path filePath = table_path/file_name;
+    if (std::ofstream file(filePath); file)
+    {
+        file << toJson().dump();
+        file.close();
+    }
+    else
+    {
+        logger->logCritical({"Unable to update ",tableName,".json file"});
+        throw std::runtime_error("Unable to update schema file");
     }
 }

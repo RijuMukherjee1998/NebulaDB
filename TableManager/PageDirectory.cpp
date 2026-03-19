@@ -7,6 +7,10 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+
+
+uint64_t StorageEngine::PageDirectory::currentLogicalPage = 0;
+
 StorageEngine::PageDirectory::PageDirectory(const std::filesystem::path& selectedDBPath, const std::filesystem::path& selectedTablePath)
 {
     currSelectedDBPath = selectedDBPath;
@@ -15,6 +19,7 @@ StorageEngine::PageDirectory::PageDirectory(const std::filesystem::path& selecte
     pgDirPath = currSelectedTablePath/"pgdir.dat";
     pd_map = std::make_unique<std::unordered_map<uint64_t, StorageEngine::PDEntry>>();
     pd_map->clear();
+    currentLogicalPage = 0;
 }
 
 StorageEngine::PDEntry StorageEngine::PageDirectory::lookUpPage(const uint64_t logicalPage) const
@@ -33,7 +38,7 @@ void StorageEngine::PageDirectory::updateOnInsert(const uint16_t data_size)
 {
     if (data_size > PAGE_SIZE)
     {
-        logger->logError({"Entry too big for DB"});
+        logger->logCritical({"Entry too big for DB"});
         return;
     }
     changeCounter++;
@@ -103,7 +108,7 @@ void StorageEngine::PageDirectory::loadPageDirectory()
         entry.logicalPage = 0;
         entry.fileId = 0;
         entry.pageOffset = 0;
-        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
+        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader);
         entry.exists = true;
         (*pd_map)[currentLogicalPage] = entry;
         serialize();
@@ -118,7 +123,7 @@ void StorageEngine::PageDirectory::loadPageDirectory()
         entry.logicalPage = 0;
         entry.fileId = 0;
         entry.pageOffset = 0;
-        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
+        entry.freeSpace = PAGE_SIZE - sizeof(PageHeader);
         entry.exists = true;
         (*pd_map)[currentLogicalPage] = entry;
     }
@@ -139,7 +144,7 @@ void StorageEngine::PageDirectory::serialize()
 {
     // want to re-write the entire file not append to it so std::ios::trunc option is used
     std::ofstream pd_file(pgDirPath.string(), std::ios::binary|std::ios::trunc);
-    if (!pd_file)
+    if (!pd_file.good())
     {
         logger->logCritical({"Page directory could not be opened for write: " ,currSelectedDBPath.string()});
         throw std::runtime_error("Page directory could not be opened for write");
@@ -157,7 +162,7 @@ void StorageEngine::PageDirectory::serialize()
 std::vector<StorageEngine::PDEntry> StorageEngine::PageDirectory::deserialize()
 {
     std::ifstream pd_file(pgDirPath.string(),std::ios::binary);
-    if (!pd_file)
+    if (!pd_file.good())
     {
         logger->logCritical({"Page directory could not be opened: " + currSelectedDBPath.string()});
         throw std::runtime_error("Page directory could not be opened");

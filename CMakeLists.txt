@@ -15,6 +15,8 @@ add_executable(NebulaDB main.cpp
         StorageEngine/PageCache.cpp
         StorageEngine/DiskManager.cpp
         StorageEngine/Page.cpp
+        StorageEngine/Indexer.cpp
+        StorageEngine/PageData.cpp
         Utils/ThreadPool.cpp
         Utils/Logger.cpp
         headers/DBManager.h
@@ -31,6 +33,8 @@ add_executable(NebulaDB main.cpp
         headers/ThreadPool.h
         headers/LRUK.h
         headers/BPlusTree.h
+        headers/Indexer.h
+        headers/PageData.h
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)

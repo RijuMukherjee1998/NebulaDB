@@ -10,16 +10,42 @@
 #include "../headers/Schema.h"
 #include "../headers/Page.h"
 #include "../headers/PageCache.h"
-Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, const Schema* schema):
-    tSchema(*schema)
+
+
+Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, Schema* schema):
+    tSchema(schema)
 {
     this->currSelectedDBPath = currSelectedDBPath;
     this->currSelectedTablePath = currSelectedTablePath;
     pageDirectory = new StorageEngine::PageDirectory(currSelectedDBPath, currSelectedTablePath);
-    pageCache = new StorageEngine::PageCache(currSelectedTablePath, pageDirectory);
+    pageCache = StorageEngine::PageCache::getInstance(currSelectedTablePath, pageDirectory);
+    pgData = StorageEngine::PageData::getPageDataInstance(tSchema);
     logger = Utils::Logger::getInstance();
     pageDirectory->loadPageDirectory();
+    populateIndexTable();
 }
+
+void Manager::TableManager::createIndexOnCol(const std::string &idx_name) {
+    if (tSchema->getColumn(idx_name).is_indexed == true) {
+        logger->logWarn({"Column ", idx_name, " already indexed"});
+        return;
+    }
+    tSchema->updateColumn(idx_name, true);
+    Column col = tSchema->getColumn(idx_name);
+    addToIndexTable(col);
+}
+
+void Manager::TableManager::getRowByIndex(const std::string &idx_name,variant_data_t& key) {
+    if (tSchema->getColumn(idx_name).is_indexed == false) {
+        logger->logWarn({"Column ", idx_name, " not indexed"});
+        return;
+    }
+    Column col = tSchema->getColumn(idx_name);
+    auto indexer = getIndexFromIndexTable(col);
+    auto row = indexer->searchIndex(key);
+    printTableRow(std::move(row));
+}
+
 
 void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
 {
@@ -48,7 +74,7 @@ void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
     }
 
     pageDirectory->updateOnInsert(totalBytes);
-    const uint64_t currLogicalPageId = pageDirectory->currentLogicalPage;
+    const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
     const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(currLogicalPageId);
     currPage->insertIntoPage(currBufferPtr, totalBytes);
     pageCache->markPageDirty(currLogicalPageId);
@@ -59,11 +85,12 @@ void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
 void Manager::TableManager::selectAllFromTable() const
 {
     const auto rows = new std::vector<std::unique_ptr<char[]>>();
-    const uint64_t currLogicalPageId = pageDirectory->currentLogicalPage;
+    auto slots = new std::vector<SLOT_ID_TYPE>();
+    const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
     for (int i=0; i<= currLogicalPageId; i++)
     {
         const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
-        currPage->getAllDataFromPage(rows);
+        currPage->getAllRowsFromPage(rows,slots);
         pageCache->unPinPage(i);
     }
     // These functions will be put in the client side later.
@@ -72,6 +99,7 @@ void Manager::TableManager::selectAllFromTable() const
 
 void Manager::TableManager::flushAll() const
 {
+    tSchema->updateSchemaFile(currSelectedTablePath);
     pageCache->flushDirtyPages();
     pageDirectory->savePageDirectory(true);
 }

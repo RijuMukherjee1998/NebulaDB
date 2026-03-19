@@ -44,10 +44,14 @@ namespace Manager {
 
         void showAllTables() const;
         void selectTable(const std::string* table_name);
-        void createTable(const std::string* table_name, const Schema* schema);
-        void deleteTable(const std::string* table_name) const;
+        void createTable(const std::string* table_name,  Schema* schema);
+        void deleteTable(const std::string* table_name);
+        // indexing functions
+        void createIndexOnTable(const std::string* table_name, const std::string& idx_col_name) const;
+        // insert and select functions
         void insertIntoSelectedTable(std::vector<Column>& columns) const;
         void selectAllFromSelectedTable() const;
+        void selectRowFromTableByIndex(std::string& idx_name, variant_data_t& key) const;
     };
 
 } // Manager

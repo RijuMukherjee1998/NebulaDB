@@ -61,7 +61,7 @@ namespace StorageEngine
         }
         auto slot_it = slots.begin();
         std::advance(slot_it, slot_idx);
-        uint16_t offset = slot_it->offset;
+        //uint16_t offset = slot_it->offset;
         const uint16_t length = slot_it->length;
         const uint16_t start_index = slot_it->offset;
         uint16_t end_index = 0;
@@ -95,29 +95,34 @@ namespace StorageEngine
         slot_it->isSlotValid = false;
     }
 
-    void Page::getAllDataFromPage(std::vector<std::unique_ptr<char[]>>* rows) const
+    std::unique_ptr<char[]> Page::getRowFromPage(const uint16_t slot_idx)
     {
+        auto slot_it = slots.begin();
+        std::advance(slot_it, slot_idx);
+        std::unique_ptr<char[]> data = std::make_unique<char[]>(slot_it->length);
+        std::memcpy(data.get(), (page_data+slot_it->offset), slot_it->length);
+        return data;
+    }
+
+    void Page::getAllRowsFromPage(std::vector<std::unique_ptr<char[]>>* rows, std::vector<SLOT_ID_TYPE>* all_slots) const
+    {
+        SLOT_ID_TYPE slot_idx = 0;
         for (const auto& slot : slots)
         {
             auto row = std::make_unique<char[]>(slot.length);
             std::memset(row.get(), 0, slot.length);
             char* buffer = row.get();
-            if (slot.isSlotValid)
-            {
+            if (slot.isSlotValid) {
                 int c = 0;
                 for (int i = slot.offset; i < (slot.offset + slot.length); i++)
                 {
                     *(buffer+c) = page_data[i];
                     c++;
                 }
+                rows->push_back(std::move(row));
+                all_slots->push_back(slot_idx);
             }
-            // std::cout << "Row bytes read: ";
-            // for (size_t i = 0; i < row_size; ++i)
-            // {
-            //     printf("%02X ", static_cast<unsigned char>(row[i]));
-            // }
-            // std::cout << std::endl;
-            rows->push_back(std::move(row));
+            slot_idx++;
         }
 
     }

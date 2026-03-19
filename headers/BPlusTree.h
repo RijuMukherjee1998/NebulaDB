@@ -49,6 +49,25 @@ class BPlusTree {
 
 public:
     BPlusTree() = default;
+    std::unique_ptr<std::vector<std::pair<Key,Value>>> getAllIndices()
+    {
+        std::shared_ptr<Node> curr = root;
+        while (curr->type == NodeType::INTERNAL) {
+            auto inode = std::static_pointer_cast<InternalNode>(curr);
+            int idx = 0;
+            assert(inode->getKeyCount() > 0);
+            curr = inode->children[idx];
+        }
+        auto leaf = std::static_pointer_cast<LeafNode>(curr);
+        std::unique_ptr<std::vector<std::pair<Key,Value>>> all_indices = std::make_unique<std::vector<std::pair<Key, Value>>>();
+        while (leaf != nullptr) {
+            for (auto i=0; i<leaf->getKeyCount(); i++) {
+                all_indices->emplace_back(std::pair<Key,Value>(leaf->keys[i],leaf->values[i]));
+            }
+            leaf = leaf->next;
+        }
+        return all_indices;
+    }
 
     void insert(const Key& key, const Value& value)
     {

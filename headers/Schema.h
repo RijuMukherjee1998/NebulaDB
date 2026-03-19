@@ -18,7 +18,30 @@ public:
     Schema(std::string tableName, std::vector<Column> columns);
     void saveToFile(const std::filesystem::path& table_path) const;
     json loadFromFile(const std::filesystem::path& filePath) const;
+    void updateSchemaFile(const std::filesystem::path& table_path) const;
     static Schema* loadFromFileSchema(const std::filesystem::path& filePath);
+    std::vector<Column> getColumns() {
+        return columns;
+    }
+    Column& getColumn(const std::string& column_name) {
+        for (Column& column : columns) {
+            if (column.col_name == column_name) {
+                return column;
+            }
+        }
+        logger->logCritical({"No such column"});
+        return *(new Column());
+    }
+    // for now update column support updating index
+    void updateColumn(const std::string& column_name, bool is_indexed) {
+        for (Column &column : columns) {
+            if (column.col_name == column_name) {
+                column.is_indexed = is_indexed;
+                return;
+            }
+        }
+        logger->logError({"No such column"});
+    }
 private:
     Utils::Logger* logger;
     std::string tableName;

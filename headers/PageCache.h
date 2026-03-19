@@ -19,8 +19,11 @@ class LRU_K;
 namespace StorageEngine
 {
     class PageCache {
+    private:
+        static PageCache* pg_cache_instance;
+        static std::recursive_mutex instance_cache_mtx;
         std::recursive_mutex pg_cache_mtx;
-        Utils::Logger* logger;
+        static Utils::Logger* logger;
         std::shared_ptr<std::unordered_map<uint64_t, std::shared_ptr<StorageEngine::Page>>> page_cache;
         PageDirectory* pageDirectory;
         const std::filesystem::path& currTablePath;
@@ -31,9 +34,10 @@ namespace StorageEngine
         void pinPage(const uint64_t& logicalId);
         void loadPageIntoCache(uint64_t logical_id);
         void updateLRU(uint64_t);
-
-    public:
         PageCache(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory);
+    public:
+        static PageCache* getNonNullInstance();
+        static PageCache* getInstance(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory);
         std::shared_ptr<Page> getPageFromCache(uint64_t logical_id);
         void flushDirtyPages();
         void markPageDirty(uint64_t logical_id);

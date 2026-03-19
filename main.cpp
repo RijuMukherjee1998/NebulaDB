@@ -46,10 +46,8 @@ std::string random_string(const size_t min_len, const size_t max_len, bool nums 
     return result;
 }
 
-int main()
-{
-
-    try
+int  WriteAndReadAll_EX() {
+     try
     {
         std::cout << "Hello, NebulaDB" << std::endl;
         ThreadPool::getInstance();
@@ -61,11 +59,11 @@ int main()
         dbmanager.showAllDB();
         dbmanager.selectDB(&db_name);
 
-        const Schema mySchema(tbl_name, {
-            {"sno", DataType::INT, true, false},
-            {"name", DataType::STRING, false, false},
-            {"age", DataType::INT, false, false},
-            {"aadhar_id", DataType::STRING, true, false}
+        Schema mySchema(tbl_name, {
+            {1,"sno", DataType::INT, true, false, false},
+            {2,"name", DataType::STRING, false, false,false},
+            {3,"age", DataType::INT, false, false, false},
+            {4,"aadhar_id", DataType::STRING, true, false, false}
         });
         dbmanager.createTable(&tbl_name, &mySchema);
         dbmanager.showAllTables();
@@ -75,16 +73,19 @@ int main()
         std::string name = "Riju";
         std::string aaid = "354268570149";
         std::vector<Column> columns;
+
         Column SNO;
         SNO.col_name = "id";
         SNO.col_type = DataType::INT;
         SNO.col_value = id;
         SNO.is_primary_key = true;
         SNO.is_null = false;
+
         Column NAME;
         NAME.col_name = "name";
         NAME.col_type = DataType::STRING;
         NAME.col_value = name;
+
         Column AGE;
         AGE.col_name = "age";
         AGE.col_type = DataType::INT;
@@ -128,5 +129,111 @@ int main()
         std::cout<< "Exiting DB .... Critical Error" << std::endl;
         return -1;
     }
+    return 0;
+}
+
+int WriteAndCreateIndex_EX() {
+    try {
+        std::cout << "Hello, NebulaDB" << std::endl;
+        ThreadPool::getInstance();
+        Manager::DBManager dbmanager;
+        dbmanager.showAllDB();
+        const std::string db_name = "MY_DB";
+        const std::string tbl_name = "PeopleInfo";
+        dbmanager.createDB(&db_name);
+        dbmanager.showAllDB();
+        dbmanager.selectDB(&db_name);
+        Schema* mySchema = new Schema(tbl_name, {
+            {1,"sno", DataType::INT, true, false, false},
+            {2,"name", DataType::STRING, false, false, false},
+            {3,"age", DataType::INT, false, false, false},
+            {4,"aadhar_id", DataType::STRING, true, false, false}
+        });
+        dbmanager.createTable(&tbl_name, mySchema);
+        dbmanager.showAllTables();
+        dbmanager.selectTable(&tbl_name);
+
+        int id = 1;
+        int age = 25;
+        std::string name = "Riju";
+        std::string aaid = "354268570149";
+        std::vector<Column> columns;
+
+        Column SNO;
+        SNO.col_name = "sno";
+        SNO.col_type = DataType::INT;
+        SNO.col_value = id;
+        SNO.is_primary_key = true;
+        SNO.is_null = false;
+        SNO.is_indexed = false;
+
+        Column NAME;
+        NAME.col_name = "name";
+        NAME.col_type = DataType::STRING;
+        NAME.col_value = name;
+
+        Column AGE;
+        AGE.col_name = "age";
+        AGE.col_type = DataType::INT;
+        AGE.col_value = age;
+
+        Column AADHAR_ID;
+        AADHAR_ID.col_name = "aadhar_id";
+        AADHAR_ID.col_type = DataType::STRING;
+        AADHAR_ID.col_value = aaid;
+
+
+        while (id < 2048)
+        {
+            columns.clear();
+            columns.push_back(SNO);
+            columns.push_back(NAME);
+            columns.push_back(AGE);
+            columns.push_back(AADHAR_ID);
+            dbmanager.insertIntoSelectedTable(columns);
+            id++;
+            age++;
+            age = age % 100;
+            SNO.col_value = id;
+            AGE.col_value = age;
+            name = random_string(6, 14);
+            NAME.col_value = name;
+            aaid = random_string(12, 12, true);
+            AADHAR_ID.col_value = aaid;
+        }
+        std::cout << "All Data Inserted" << std::endl;
+        dbmanager.selectAllFromSelectedTable();
+
+        dbmanager.createIndexOnTable(&tbl_name,"sno");
+    }
+    catch (std::exception &e)
+    {
+        std::cout << e.what() << std::endl;
+        std::cout<< "Exiting DB .... Critical Error" << std::endl;
+        return -1;
+    }
+    return 0;
+}
+void FindDataByIndex() {
+    std::cout << "Hello, NebulaDB" << std::endl;
+    ThreadPool::getInstance();
+    Manager::DBManager dbmanager;
+    dbmanager.showAllDB();
+    const std::string db_name = "MY_DB";
+    const std::string tbl_name = "PeopleInfo";
+    dbmanager.selectDB(&db_name);
+    dbmanager.showAllTables();
+    dbmanager.selectTable(&tbl_name);
+    variant_data_t key = 50;
+    std::string idx_name = "sno";
+    dbmanager.selectRowFromTableByIndex(idx_name,key);
+    dbmanager.deleteTable(&tbl_name);
+    dbmanager.deleteDB(&db_name);
+}
+int main()
+{
+    // WriteAndReadAll_EX();
+    WriteAndCreateIndex_EX();
+    FindDataByIndex();
     return 0;
 }

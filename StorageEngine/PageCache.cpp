@@ -7,8 +7,30 @@
 #include "../headers/PageCache.h"
 #include "../headers/DiskManager.h"
 #include "../headers/ThreadPool.h"
-namespace StorageEngine
-{
+#include "../headers/Logger.h"
+
+
+namespace StorageEngine {
+    // Definitions of static members
+    PageCache* PageCache::pg_cache_instance = nullptr;
+    std::recursive_mutex PageCache::instance_cache_mtx;
+    Utils::Logger* PageCache::logger = nullptr;
+
+    PageCache* PageCache::getNonNullInstance() {
+        if (pg_cache_instance == nullptr) {
+            logger->logCritical({"Don't call this function until PageCache is initialized"});
+        }
+        return pg_cache_instance;
+    }
+
+    PageCache* PageCache::getInstance(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory) {
+        std::lock_guard<std::recursive_mutex> inst_lock(instance_cache_mtx);
+        if (pg_cache_instance == nullptr) {
+            pg_cache_instance = new PageCache(currTablePath, pageDirectory);
+        }
+        return pg_cache_instance;
+    }
+
     PageCache::PageCache(const std::filesystem::path& currTablePath, PageDirectory* pageDirectory): currTablePath(
         currTablePath), lru_k(std::make_unique<LRU_K>(2))
     {
@@ -26,7 +48,7 @@ namespace StorageEngine
         }
         (*page_cache)[logicalId]->pin_count += 1;
     }
-    void StorageEngine::PageCache::unPinPage(const uint64_t& logicalId)
+    void PageCache::unPinPage(const uint64_t& logicalId)
     {
         std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
         if (page_cache->find(logicalId) == page_cache->end())
@@ -49,7 +71,7 @@ namespace StorageEngine
         return page;
     }
 
-    void StorageEngine::PageCache::loadPageIntoCache(uint64_t logical_id)
+    void PageCache::loadPageIntoCache(uint64_t logical_id)
     {
         const PDEntry pde =  pageDirectory->lookUpPage(logical_id);
         std::shared_ptr<Page> page = nullptr;
@@ -102,7 +124,7 @@ namespace StorageEngine
         }
     }
 
-    void StorageEngine::PageCache::updateLRU(const uint64_t logical_id)
+    void PageCache::updateLRU(const uint64_t logical_id)
     {
         time_stamp += 1;
         lru_k->accessPage(logical_id, time_stamp);

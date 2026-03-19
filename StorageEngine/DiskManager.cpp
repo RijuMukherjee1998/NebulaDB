@@ -81,7 +81,8 @@ namespace StorageEngine
         page->header = header;
         page->slots = std::move(slots);
 
-        //buffer_ptr += sizeof(size_t);
+        // this maybe used for the version update. -- will think about it later
+        // buffer_ptr += sizeof(size_t);
         //Deserialize page_data from buffer
         const size_t pg_data_offset = sizeof(PageHeader) + header.num_slots * sizeof(Slot);
         for (size_t i = pg_data_offset; i < page->data_container_size; i++)

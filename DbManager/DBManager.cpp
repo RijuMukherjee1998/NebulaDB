@@ -164,13 +164,13 @@ void Manager::DBManager::selectTable(const std::string* table_name)
     }
     else
     {
-        const Schema* sch = Schema::loadFromFileSchema(currSelectedTablePath/(tbl_name_fs.string()+".json"));
+        Schema* sch = Schema::loadFromFileSchema(currSelectedTablePath/(tbl_name_fs.string()+".json"));
         curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, sch);
         table_manager_table[*table_name] = curr_table_manager;
     }
 }
 
-void Manager::DBManager::createTable(const std::string* table_name, const Schema* schema)
+void Manager::DBManager::createTable(const std::string* table_name, Schema* schema)
 {
     const std::vector<std::filesystem::path> tables = listAllTables();
     if (currSelectedDBPath.empty())
@@ -202,7 +202,7 @@ void Manager::DBManager::createTable(const std::string* table_name, const Schema
     logger->logInfo({"Table", table_path.filename().string(),"Created"});
 }
 
-void Manager::DBManager::deleteTable(const std::string* table_name) const
+void Manager::DBManager::deleteTable(const std::string* table_name)
 {
     if (currSelectedDBPath.empty())
     {
@@ -222,10 +222,21 @@ void Manager::DBManager::deleteTable(const std::string* table_name) const
         {
             logger->logInfo({"Table", tables.back().filename().string(),"Deleted"});
             std::filesystem::remove_all(entry);
+            if (entry.filename().compare(currSelectedTablePath))
+                curr_table_manager = nullptr;
             return;
         }
     }
     logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
+}
+void Manager::DBManager::createIndexOnTable(const std::string *table_name, const std::string &idx_col_name) const {
+
+    if (curr_table_manager == nullptr) {
+        logger->logError({"No table selected"});
+        return;
+    }
+    curr_table_manager->createIndexOnCol(idx_col_name);
+
 }
 
 void Manager::DBManager::insertIntoSelectedTable(std::vector<Column>& columns) const
@@ -246,4 +257,12 @@ void Manager::DBManager::selectAllFromSelectedTable() const {
         return;
     }
     curr_table_manager->selectAllFromTable();
+}
+
+void Manager::DBManager::selectRowFromTableByIndex(std::string& idx_name, variant_data_t& key) const {
+    if (curr_table_manager == nullptr) {
+        logger->logCritical({"No table selected"});
+        return;
+    }
+    curr_table_manager->getRowByIndex(idx_name,key);
 }
