@@ -31,13 +31,25 @@ StorageEngine::PageData* StorageEngine::PageData::getPageDataInstance(Schema *sc
 
 std::unique_ptr<std::vector<Column>> StorageEngine::PageData::singleRowData(PAGE_ID_TYPE page_id, SLOT_ID_TYPE slot_id) {
     std::shared_ptr<Page> page = pg_cache->getPageFromCache(page_id);
-    auto row = std::make_unique<std::vector<char>>();
     auto row_data_raw = page->getRowFromPage(slot_id);
     pg_cache->unPinPage(page_id);
     char* buffer_ptr = row_data_raw.get();
     std::vector<Column> cols = schema->getColumns();
     BIG_SWITCH(buffer_ptr, cols);
     return std::make_unique<std::vector<Column>>(cols);
+}
+std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine::PageData::multiRowData(std::vector<std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>& pgs_slots) {
+    std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> rows = std::make_unique<std::vector<std::unique_ptr<std::vector<Column>>>>();
+    for (const auto& pg_slot : pgs_slots) {
+        std::shared_ptr<Page> page = pg_cache->getPageFromCache(pg_slot.first);
+        auto row_data_raw = page->getRowFromPage(pg_slot.second);
+        pg_cache->unPinPage(pg_slot.first);
+        char* buffer_ptr = row_data_raw.get();
+        std::vector<Column> cols = schema->getColumns();
+        BIG_SWITCH(buffer_ptr,cols);
+        rows->push_back(std::move(std::make_unique<std::vector<Column>>(cols)));
+    }
+    return std::move(rows);
 }
 
 // has the data of the entire column per page

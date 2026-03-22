@@ -31,6 +31,7 @@ namespace StorageEngine
         void updateOnInsert();
         void updateOnDelete();
         std::unique_ptr<std::vector<Column>> searchIndex(Key& key);
+        std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> searchIndexRange(Key& startKey, Key& endKey);
         std::string getIndxColName() {
             return index_name;
         }

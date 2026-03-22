@@ -48,6 +48,18 @@ std::unique_ptr<std::vector<Column>> StorageEngine::Indexer<Key, Value>::searchI
     return row;
 }
 
+template<typename Key, typename Value>
+std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine::Indexer<Key,Value>::searchIndexRange(Key& startKey, Key& endKey){
+    PageData* pg_data = PageData::getNonNullInstance();
+    bool found = false;
+    std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> row = nullptr;
+    std::unique_ptr<std::vector<Value>> val = bp_tree->searchRange(startKey,endKey,found);
+    if (found) {
+        row = pg_data->multiRowData(*val);
+    }
+    return row;
+}
+
 template<typename Key , typename Value>
 void StorageEngine::Indexer<Key,Value>::serialize() {
     // want to rewrite the entire file not append to it so std::ios::truc option is used

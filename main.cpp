@@ -183,7 +183,7 @@ int WriteAndCreateIndex_EX() {
         AADHAR_ID.col_value = aaid;
 
 
-        while (id < 2048)
+        while (id < 100000)
         {
             columns.clear();
             columns.push_back(SNO);
@@ -202,7 +202,7 @@ int WriteAndCreateIndex_EX() {
             AADHAR_ID.col_value = aaid;
         }
         std::cout << "All Data Inserted" << std::endl;
-        dbmanager.selectAllFromSelectedTable();
+        //dbmanager.selectAllFromSelectedTable();
 
         dbmanager.createIndexOnTable(&tbl_name,"sno");
     }
@@ -225,8 +225,16 @@ void FindDataByIndex() {
     dbmanager.showAllTables();
     dbmanager.selectTable(&tbl_name);
     variant_data_t key = 50;
-    std::string idx_name = "sno";
-    dbmanager.selectRowFromTableByIndex(idx_name,key);
+    std::string idx_sno = "sno";
+    dbmanager.selectRowFromTableByIndex(idx_sno,key);
+    dbmanager.createIndexOnTable(&tbl_name,"age");
+    std::string idx_age = "age";
+    variant_data_t start_age = 60;
+    variant_data_t end_age = 70;
+    dbmanager.selectRowsFromTableByIndexRange(idx_age, start_age, end_age);
+    // all data at age = 60-60
+    end_age = 60;
+    dbmanager.selectRowsFromTableByIndexRange(idx_age, start_age, end_age);
     dbmanager.deleteTable(&tbl_name);
     dbmanager.deleteDB(&db_name);
 }

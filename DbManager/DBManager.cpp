@@ -266,3 +266,11 @@ void Manager::DBManager::selectRowFromTableByIndex(std::string& idx_name, varian
     }
     curr_table_manager->getRowByIndex(idx_name,key);
 }
+
+void Manager::DBManager::selectRowsFromTableByIndexRange(std::string& idx_name, variant_data_t& start_key, variant_data_t& end_key) const {
+    if (curr_table_manager == nullptr) {
+        logger->logCritical({"No table selected"});
+        return;
+    }
+    curr_table_manager->getRowsByIndexRange(idx_name,start_key, end_key);
+}

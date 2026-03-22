@@ -104,6 +104,18 @@ namespace StorageEngine
         return data;
     }
 
+    std::unique_ptr<std::vector<std::unique_ptr<char[]>>> Page::getRowsFromPage(const std::vector<uint16_t>& slot_idxs) {
+        std::unique_ptr<std::vector<std::unique_ptr<char[]>>> rows = std::make_unique<std::vector<std::unique_ptr<char[]>>>();
+        for (const auto& slot_idx : slot_idxs) {
+            auto slot_it = slots.begin();
+            std::advance(slot_it,slot_idx);
+            std::unique_ptr<char[]> data = std::make_unique<char[]>(slot_it->length);
+            std::memcpy(data.get(), (page_data+slot_it->offset), slot_it->length);
+            rows->push_back(std::move(data));
+        }
+        return rows;
+    }
+
     void Page::getAllRowsFromPage(std::vector<std::unique_ptr<char[]>>* rows, std::vector<SLOT_ID_TYPE>* all_slots) const
     {
         SLOT_ID_TYPE slot_idx = 0;

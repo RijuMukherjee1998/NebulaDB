@@ -36,6 +36,7 @@ namespace Manager
         void selectAllFromTable() const;
         void createIndexOnCol(const std::string& idx_name);
         void getRowByIndex(const std::string& idx_name,variant_data_t& key);
+        void getRowsByIndexRange(const std::string& idx_name,variant_data_t& key1, variant_data_t& key2);
         void flushAll() const;
 
     private:
@@ -138,14 +139,14 @@ namespace Manager
                 }
             }
         }
-        std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> getIndexFromIndexTable(Column& col) {
+        StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* getIndexFromIndexTable(Column& col) {
             if (index_table == nullptr) {
                 logger->logWarn({"Index not loaded or dosen't exist"});
                 return nullptr;
             }
             for (auto& ptr : *index_table) {
                 if (ptr.get()->getIndxColName() == col.col_name) {
-                    return std::move(ptr);
+                    return ptr.get();
                 }
             }
             return nullptr;

@@ -52,6 +52,7 @@ namespace Manager {
         void insertIntoSelectedTable(std::vector<Column>& columns) const;
         void selectAllFromSelectedTable() const;
         void selectRowFromTableByIndex(std::string& idx_name, variant_data_t& key) const;
+        void selectRowsFromTableByIndexRange(std::string& idx_name, variant_data_t& key1, variant_data_t& key2) const;
     };
 
 } // Manager

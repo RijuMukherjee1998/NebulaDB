@@ -99,8 +99,9 @@ namespace StorageEngine {
         static PageData* getNonNullInstance();
         Column singleData(PAGE_ID_TYPE page_id, SLOT_ID_TYPE slot_id);
         std::unique_ptr<std::vector<Column>> singleRowData(PAGE_ID_TYPE page_id, SLOT_ID_TYPE slot_id);
-        std::unique_ptr<std::vector<std::vector<Column>>> rowDatas(PAGE_ID_TYPE page_id, SLOT_ID_TYPE slot_id);
+        std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> multiRowData(std::vector<std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>&);
         std::unique_ptr<std::vector<std::pair<Column,SLOT_ID_TYPE>>> columnData(PAGE_ID_TYPE page_id, std::string& col_name);
+        std::unique_ptr<std::vector<std::pair<Column,SLOT_ID_TYPE>>> multiColumnData(PAGE_ID_TYPE page_id, std::vector<std::string&>& col_name);
         std::unique_ptr<std::vector<std::vector<Column>>> allRowsData(PAGE_ID_TYPE page_id);
     };
 }

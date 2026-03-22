@@ -46,6 +46,18 @@ void Manager::TableManager::getRowByIndex(const std::string &idx_name,variant_da
     printTableRow(std::move(row));
 }
 
+void Manager::TableManager::getRowsByIndexRange(const std::string &idx_name,variant_data_t& start_key, variant_data_t& end_key) {
+    if (tSchema->getColumn(idx_name).is_indexed == false) {
+        logger->logWarn({"Column ", idx_name, " not indexed"});
+        return;
+    }
+    Column col = tSchema->getColumn(idx_name);
+    auto indexer = getIndexFromIndexTable(col);
+    auto rows = indexer->searchIndexRange(start_key, end_key);
+    for (auto& row : *rows) {
+        printTableRow(std::move(row));
+    }
+}
 
 void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
 {

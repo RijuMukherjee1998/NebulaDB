@@ -51,6 +51,7 @@ namespace StorageEngine
         void updateIntoPage(uint16_t slot_idx, std::vector<char>* new_data, uint16_t new_data_len);
         void deleteFromPage(uint16_t slot_idx);
         std::unique_ptr<char[]> getRowFromPage(uint16_t slot_idx);
+        std::unique_ptr<std::vector<std::unique_ptr<char[]>>> getRowsFromPage(const std::vector<uint16_t>& slot_idxs);
         void getAllRowsFromPage(std::vector<std::unique_ptr<char[]>>* rows, std::vector<SLOT_ID_TYPE>* slots) const;
 
     };
