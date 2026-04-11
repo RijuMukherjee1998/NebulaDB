@@ -31,7 +31,7 @@ struct Column
     bool is_primary_key = false;
     bool is_null = false;
     bool is_indexed = false;
-    std::any col_value;
+    std::any col_value{};
 
     json toJson() const {
         return {

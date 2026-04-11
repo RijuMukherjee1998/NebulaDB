@@ -2,12 +2,39 @@ cmake_minimum_required(VERSION 3.30)
 project(NebulaDB)
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Enable AddressSanitizer
-#option(ENABLE_ASAN "Enable AddressSanitizer" ON)
+# Ensure vcpkg toolchain is picked automatically
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")
+endif()
 
+# Warnings (VERY important for systems code)
+add_compile_options(
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+)
+
+# Optional: Address Sanitizer
+option(ENABLE_ASAN "Enable AddressSanitizer" ON)
+if(ENABLE_ASAN)
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address)
+endif()
+
+# Dependencies
 find_package(spdlog CONFIG REQUIRED)
-add_executable(NebulaDB main.cpp
+find_package(GTest REQUIRED)
+
+# =========================
+# Main Executable
+# =========================
+add_executable(NebulaDB
+        main.cpp
         DbManager/DBManager.cpp
         DbManager/Schema.cpp
         TableManager/TableManager.cpp
@@ -15,34 +42,17 @@ add_executable(NebulaDB main.cpp
         StorageEngine/PageCache.cpp
         StorageEngine/DiskManager.cpp
         StorageEngine/Page.cpp
-        StorageEngine/Indexer.cpp
+        StorageEngine/Indexer.tpp
         StorageEngine/PageData.cpp
         Utils/ThreadPool.cpp
         Utils/Logger.cpp
-        headers/DBManager.h
-        headers/constants.h
-        headers/Logger.h
-        headers/Schema.h
-        headers/TableManager.h
-        headers/PageDirectory.h
-        headers/ISerializable.h
-        headers/Page.h
-        headers/PageCache.h
-        headers/DiskManager.h
-        headers/Column.h
-        headers/ThreadPool.h
-        headers/LRUK.h
-        headers/BPlusTree.h
-        headers/Indexer.h
-        headers/PageData.h
 )
 
 target_link_libraries(NebulaDB PRIVATE spdlog::spdlog)
 
-
-# GTest for NebulaDB
-find_package(GTest REQUIRED)
-find_package(spdlog REQUIRED)
+# =========================
+# Tests
+# =========================
 add_executable(run_tests
         DbManager/DBManager.cpp
         DbManager/Schema.cpp
@@ -50,28 +60,16 @@ add_executable(run_tests
         Utils/ThreadPool.cpp
         TableManager/TableManager.cpp
         TableManager/PageDirectory.cpp
-        StorageEngine/Page.cpp                  # ✅ add this
+        StorageEngine/Page.cpp
         StorageEngine/PageCache.cpp
-        StorageEngine/DiskManager.cpp           # ✅ and this headers (optional to include here, just for IDE indexing)
-        headers/DBManager.h
-        headers/constants.h
-        headers/Logger.h
-        headers/Schema.h
-        headers/TableManager.h
-        headers/PageDirectory.h
-        headers/ISerializable.h
-        headers/DiskManager.h
-        headers/Page.h
-        headers/PageCache.h
-        headers/Column.h
-        headers/LRUK.h
-        headers/ThreadPool.h
-        headers/BPlusTree.h
+        StorageEngine/PageData.cpp
+        StorageEngine/DiskManager.cpp
         Tests/TestLRUK.cpp
         Tests/TestDBManager.cpp
         Tests/TestPageDirectory.cpp
         Tests/TestBPlusTree.cpp
 )
+
 target_link_libraries(run_tests
         PRIVATE
         GTest::GTest
@@ -80,6 +78,5 @@ target_link_libraries(run_tests
         fmt::fmt
 )
 
-# Enable testing
 enable_testing()
 add_test(NAME run_tests COMMAND run_tests)

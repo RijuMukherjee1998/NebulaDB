@@ -47,7 +47,7 @@ namespace Manager {
         void createTable(const std::string* table_name,  Schema* schema);
         void deleteTable(const std::string* table_name);
         // indexing functions
-        void createIndexOnTable(const std::string* table_name, const std::string& idx_col_name) const;
+        void createIndexOnTable(const std::string* table_name, const std::string& idx_col_name);
         // insert and select functions
         void insertIntoSelectedTable(std::vector<Column>& columns) const;
         void selectAllFromSelectedTable() const;

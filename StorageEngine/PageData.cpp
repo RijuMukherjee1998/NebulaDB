@@ -49,7 +49,7 @@ std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine
         BIG_SWITCH(buffer_ptr,cols);
         rows->push_back(std::move(std::make_unique<std::vector<Column>>(cols)));
     }
-    return std::move(rows);
+    return rows;
 }
 
 // has the data of the entire column per page

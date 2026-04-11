@@ -85,5 +85,6 @@ namespace StorageEngine
     };
 }
 
+#include "../StorageEngine/Indexer.tpp"
 
 #endif //NEBULADB_INDEXER_H

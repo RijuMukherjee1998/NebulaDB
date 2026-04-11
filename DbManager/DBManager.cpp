@@ -229,12 +229,13 @@ void Manager::DBManager::deleteTable(const std::string* table_name)
     }
     logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
 }
-void Manager::DBManager::createIndexOnTable(const std::string *table_name, const std::string &idx_col_name) const {
+void Manager::DBManager::createIndexOnTable(const std::string *table_name, const std::string &idx_col_name)  {
 
     if (curr_table_manager == nullptr) {
         logger->logError({"No table selected"});
         return;
     }
+    selectTable(table_name);
     curr_table_manager->createIndexOnCol(idx_col_name);
 
 }

@@ -99,7 +99,7 @@ void Manager::TableManager::selectAllFromTable() const
     const auto rows = new std::vector<std::unique_ptr<char[]>>();
     auto slots = new std::vector<SLOT_ID_TYPE>();
     const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
-    for (int i=0; i<= currLogicalPageId; i++)
+    for (uint64_t i=0; i<= currLogicalPageId; i++)
     {
         const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
         currPage->getAllRowsFromPage(rows,slots);

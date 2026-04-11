@@ -91,7 +91,7 @@ namespace StorageEngine
             buffer_ptr += sizeof(char);
         }
 
-        return std::move(page);
+        return page;
     }
     // Serialize the Page to byte Buffer
     std::unique_ptr<char[]> DiskManager::convertPageToBuffer(const std::shared_ptr<Page>& pg_ptr)
@@ -125,7 +125,7 @@ namespace StorageEngine
             std::memcpy(buffer_ptr, &pg_ptr->page_data[i], sizeof(char));
             buffer_ptr += sizeof(char);
         }
-        return std::move(page_buffer);
+        return page_buffer;
     }
     void DiskManager::writePageToDisk(uint32_t file_id, uint64_t page_offset, const std::shared_ptr<Page>& pg_ptr)
     {

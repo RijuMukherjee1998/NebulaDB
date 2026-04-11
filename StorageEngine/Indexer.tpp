@@ -115,7 +115,7 @@ void StorageEngine::Indexer<Key, Value>::loadIndex() {
         return;
     }
     std::vector<std::pair<Key,Value>>*all_vals = deserialize();
-    int i = 0;
+    long unsigned int i = 0;
     while (i < all_vals->size()) {
         std::pair<Key, Value> kv_pair = all_vals->at(i);
         bp_tree->insert(kv_pair.first, kv_pair.second);
@@ -124,9 +124,9 @@ void StorageEngine::Indexer<Key, Value>::loadIndex() {
     logger->logInfo({"Successfully loaded index tree"});
 }
 
-template class StorageEngine::Indexer<variant_data_t,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-/*
-template class StorageEngine::Indexer<char,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
+//template class StorageEngine::Indexer<variant_data_t,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
+
+/*template class StorageEngine::Indexer<char,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
 template class StorageEngine::Indexer<short, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
 template class StorageEngine::Indexer<int,   std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
 template class StorageEngine::Indexer<uint64_t, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;

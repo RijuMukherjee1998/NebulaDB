@@ -61,7 +61,7 @@ public:
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
         std::unique_ptr<std::vector<std::pair<Key,Value>>> all_indices = std::make_unique<std::vector<std::pair<Key, Value>>>();
         while (leaf != nullptr) {
-            for (auto i=0; i<leaf->getKeyCount(); i++) {
+            for (size_t i=0; i<leaf->getKeyCount(); i++) {
                 all_indices->emplace_back(std::pair<Key,Value>(leaf->keys[i],leaf->values[i]));
             }
             leaf = leaf->next;
@@ -268,7 +268,7 @@ public:
         int64_t last_max_key = std::numeric_limits<int64_t>::min();
         while (lnode != nullptr)
         {
-            for (int i = 1; i < lnode->keys.size(); ++i)
+            for (size_t i = 1; i < lnode->keys.size(); ++i)
             {
                 if (lnode->keys[i] < lnode->keys[i - 1] || lnode->keys[i] < last_max_key)
                 {
@@ -319,7 +319,7 @@ private:
                 auto parent = lnode->parent;
                 if(parent)
                 {
-                    int idx = 0;
+                    size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != lnode)
                         ++idx;
                     if(idx > 0)
@@ -339,7 +339,7 @@ private:
                 auto parent = lnode->parent;
                 if(parent)
                 {
-                    int idx = 0;
+                    size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != rightSibling)
                         ++idx;
                     if(idx > 0)
@@ -363,7 +363,7 @@ private:
                         lnode->next->prev = leftSibling;
                     // Update parent
                     auto parent = lnode->parent;
-                    int idx = 0;
+                    size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != lnode)
                         ++idx;
                     if(idx <= 0)
@@ -390,7 +390,7 @@ private:
                         rightSibling->next->prev = lnode;
                     // Update parent
                     auto parent = lnode->parent;
-                    int idx = 0;
+                    size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != rightSibling)
                         ++idx;
                     if(idx <= 0)
@@ -410,7 +410,7 @@ private:
             auto inode = std::static_pointer_cast<InternalNode>(node);
             auto parent = inode->parent;
             if(!parent) return;
-            int idx = 0;
+            size_t idx = 0;
             while(idx < parent->children.size() && parent->children[idx] != inode)
                 ++idx;
             if(idx > 0 && parent->children[idx - 1]->node_getKeyCount() > min_keys_internal)
