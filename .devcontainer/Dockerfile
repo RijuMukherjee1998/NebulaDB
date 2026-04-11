@@ -4,9 +4,9 @@ FROM mcr.microsoft.com/devcontainers/cpp:2-ubuntu24.04
 RUN apt-get update && apt-get install -y \
     gcc g++ \
     ninja-build \
-    pkg-config \
-    curl zip unzip tar
-
+    git \
+    curl zip unzip tar \
+    pkg-config
 # Install CMake >= 3.30
 RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-linux-x86_64.sh \
     -O /tmp/cmake.sh && \
@@ -15,10 +15,10 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3
     rm /tmp/cmake.sh
 
 # Setup vcpkg (PINNED to your baseline)
-RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
-    cd /opt/vcpkg && \
+RUN git clone https://github.com/microsoft/vcpkg.git /home/vscode/vcpkg && \
+    cd /home/vscode/vcpkg && \
     git checkout 0ca64b4e1c70fa6d9f53b369b8f3f0843797c20c && \
     ./bootstrap-vcpkg.sh
 
-ENV VCPKG_ROOT=/opt/vcpkg
+ENV VCPKG_ROOT=/home/vscode/vcpkg
 ENV PATH="$VCPKG_ROOT:$PATH"

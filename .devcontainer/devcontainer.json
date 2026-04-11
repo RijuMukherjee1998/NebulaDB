@@ -31,13 +31,13 @@
     }
   },
 
-  "mounts": [
-    "source=vcpkg-cache,target=/opt/vcpkg/installed,type=volume",
-    "source=vcpkg-buildtrees,target=/opt/vcpkg/buildtrees,type=volume",
-    "source=vcpkg-downloads,target=/opt/vcpkg/downloads,type=volume"
-  ],
+  // "mounts": [
+  //   "source=vcpkg-cache,target=/opt/vcpkg/installed,type=volume",
+  //   "source=vcpkg-buildtrees,target=/opt/vcpkg/buildtrees,type=volume",
+  //   "source=vcpkg-downloads,target=/opt/vcpkg/downloads,type=volume"
+  // ],
 
-  "postCreateCommand": "cmake -B build -S . -G Ninja -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
+  //"postCreateCommand": "cmake -B build -S . -G Ninja -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
 
   "remoteUser": "vscode"
 }
