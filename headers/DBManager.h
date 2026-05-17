@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "Column.h"
 #include "Schema.h"
 #include "Logger.h"
 #include "TableManager.h"
@@ -50,6 +51,12 @@ namespace Manager {
         void createIndexOnTable(const std::string* table_name, const std::string& idx_col_name);
         // insert and select functions
         void insertIntoSelectedTable(std::vector<Column>& columns) const;
+        //void updateRowsInSelectedTable(std::vector<Column> updatedColumns) const;
+        /*  A columnOrQuery is made up of a bunch of column and queries.
+            (e.g) select rows from table where ((salary < $1000 AND age < 25) OR age > 60)
+            so the ORQuery is made up of one or more and queries.
+        */
+        void deleteRowsInSelectedTable(InternalQuery::OrQuery& query);
         void selectAllFromSelectedTable() const;
         void selectRowFromTableByIndex(std::string& idx_name, variant_data_t& key) const;
         void selectRowsFromTableByIndexRange(std::string& idx_name, variant_data_t& key1, variant_data_t& key2) const;

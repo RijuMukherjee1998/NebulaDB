@@ -1,12 +1,12 @@
 //
 // Created by Riju Mukherjee on 01-03-2025.
 //
+#include <vector>
 #include "../headers/Page.h"
-#include "../headers/PageDirectory.h"
-#include <iostream>
+
 namespace StorageEngine
 {
-    void Page::insertIntoPage(const std::vector<char>* new_data, const uint16_t new_data_len)
+    void Page::insertIntoPage(const std::vector<char>* new_data, const uint16_t new_data_len, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot)
     {
         if (new_data == nullptr || new_data_len == 0)
         {
@@ -31,20 +31,17 @@ namespace StorageEngine
         new_slot.length = static_cast<uint16_t>(new_data_len);
         //always keep newer items in the front so that you don't have to reverse the slot later
         slots.push_front(new_slot);
-
         //Copy the data into the page_data array
         int c = 0;
-        // std::cout << "Row bytes write: ";
         for (int i = start_index; i < end_index; i++)
         {
             page_data[i] = new_data->at(c);
-            //printf("%02X ", static_cast<unsigned char>(page_data[i]));
             c++;
         }
-        // std::cout << std::endl;
         header.num_slots ++;
         header.free_space_offset = start_index;
         header.currSlotIdx += sizeof(Slot);
+        pg_slot.second = header.num_slots;
     }
 
     void Page::updateIntoPage(const uint16_t slot_idx, std::vector<char>* new_data, const uint16_t new_data_len)
@@ -92,7 +89,12 @@ namespace StorageEngine
     {
         auto slot_it = slots.begin();
         std::advance(slot_it, slot_idx);
-        slot_it->isSlotValid = false;
+        if(slot_it->isSlotValid)
+        {
+            slot_it->isSlotValid = false;
+            return;
+        }
+        logger->logCritical({"Weird Page Already Deleted"});
     }
 
     std::unique_ptr<char[]> Page::getRowFromPage(const uint16_t slot_idx)

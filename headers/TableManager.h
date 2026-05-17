@@ -5,13 +5,19 @@
 #ifndef TABLEMANAGER_H
 #define TABLEMANAGER_H
 
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+#include <unordered_map>
+
 #include "Schema.h"
 #include "Logger.h"
 #include "PageCache.h"
 #include "PageDirectory.h"
 #include "Indexer.h"
-#include "PageData.h"
 #include "constants.h"
+#include "InternalQuery.h"
 
 namespace Manager
 {
@@ -23,184 +29,52 @@ namespace Manager
         std::filesystem::path currSelectedDBPath;
         StorageEngine::PageDirectory* pageDirectory;
         StorageEngine::PageCache* pageCache;
-        StorageEngine::PageData* pgData;
-
-
-        //using variant_value_t = std::variant<StorageEngine::Indexer<short,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*, StorageEngine::Indexer<int,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*, StorageEngine::Indexer<uint64_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*,
-        //StorageEngine::Indexer<char,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*, StorageEngine::Indexer<float,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*, StorageEngine::Indexer<double,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*>;
         // will add support for string later
-        std::vector<std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>* index_table = nullptr;
+        using IndexTableType = std::unordered_map<uint16_t, std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>;
+        IndexTableType* index_table = nullptr;
+
     public:
         TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, Schema* schema);
-        void insertIntoTable(std::vector<Column>& columns) const;
-        void selectAllFromTable() const;
-        void createIndexOnCol(const std::string& idx_name);
-        void getRowByIndex(const std::string& idx_name,variant_data_t& key);
-        void getRowsByIndexRange(const std::string& idx_name,variant_data_t& key1, variant_data_t& key2);
+        void ExecuteQuery(InternalQuery::TableQuery& tbl_query);
         void flushAll() const;
 
     private:
-        /*void BIG_SWITCH_INDEXER(Column& col, bool new_idx) {
-            switch (col.col_type) {
-                        case DataType::BOOLEAN: {
-                            logger->logCritical({"Boolean values can't be indexed"});
-                            break;
-                        }
-                        case DataType::SHORT: {
-                            std::unique_ptr<StorageEngine::Indexer<short,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> idx = std::make_unique<StorageEngine::Indexer<short,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        case DataType::INT: {
-                            std::unique_ptr<StorageEngine::Indexer<int,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> idx = std::make_unique<StorageEngine::Indexer<int,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        case DataType::BIG_INT: {
-                            StorageEngine::Indexer<uint64_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* idx = new StorageEngine::Indexer<uint64_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        case DataType::CHAR: {
-                            StorageEngine::Indexer<char,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* idx = new StorageEngine::Indexer<char,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        case DataType::FLOAT: {
-                            StorageEngine::Indexer<float,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* idx = new StorageEngine::Indexer<float,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        case DataType::DOUBLE: {
-                            StorageEngine::Indexer<double,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* idx = new StorageEngine::Indexer<double,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-                            if (new_idx) {
-                                idx->createIndex();
-                            }
-                            else {
-                                idx->loadIndex();
-                            }
-                            index_table->emplace_back(idx);
-                            break;
-                        }
-                        // currently my bplus tree will break if string is passed as an index.(Till now comparisons are thought only on a number base)
-                        case DataType::STRING: {
-                            logger->logError({"Strinng index still nopt supported"});
-                            break;
-                        }
-                        default:
-                            logger->logCritical({"Invalid Data Type"});
-                    }
-        }*/
-        void addToIndexTable(Column& col) {
-            //BIG_SWITCH_INDEXER(col, true);
-            auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-            idx->createIndex();
-            index_table->emplace_back(std::move(idx));
-            logger->logInfo({"Index created successfully"});
-        }
+        ROW_ID insertIntoTable(InternalQuery::Query* insertQuery);
+        std::vector<ROW_ID> updateRowsInTable(InternalQuery::Query* updateQuery);
+        std::vector<ROW_ID> deleteRowsFromTable(InternalQuery::Query* deleteQuery);
+        std::vector<ROW_ID> selectRowsFromTable(InternalQuery::Query* selectQuery);
+        bool createIndexOnCol(InternalQuery::Query* indexQuery);
+        
         void populateIndexTable() {
-            index_table = new std::vector<std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>();
+            index_table = new std::unordered_map<uint16_t, std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>();
             for (Column col : tSchema->getColumns()) {
                 if (col.is_indexed) {
-                    //BIG_SWITCH_INDEXER(col, false);
                     auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
                     idx->loadIndex();
-                    index_table->emplace_back(std::move(idx));
+                    index_table->insert({col.col_id,std::move(idx)});
                 }
             }
         }
-        StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* getIndexFromIndexTable(Column& col) {
-            if (index_table == nullptr) {
-                logger->logWarn({"Index not loaded or dosen't exist"});
-                return nullptr;
-            }
-            for (auto& ptr : *index_table) {
-                if (ptr.get()->getIndxColName() == col.col_name) {
-                    return ptr.get();
-                }
-            }
-            return nullptr;
+        void addToIndexTable(Column& col) {
+            auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
+            idx->createIndex();
+            index_table->insert({col.col_id,std::move(idx)});
+            logger->logInfo({"Index created successfully"});
         }
-        void valueToBuffer(const Column& column, std::vector<char>* buffer, uint16_t& remainingSize) const;
-        bool isColumnTypeMatching(const Column& column, const DataType& colType) const
-        {
-            if (!column.col_value.has_value())
+        void selectAllFromTable() const{
+            const auto rows = new std::vector<std::unique_ptr<char[]>>();
+            auto slots = new std::vector<SLOT_ID_TYPE>();
+            const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
+            for (uint64_t i=0; i<= currLogicalPageId; i++)
             {
-                logger->logError({"Column has no value"});
-                return false;
+                const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
+                currPage->getAllRowsFromPage(rows,slots);
+                pageCache->unPinPage(i);
             }
-            const std::type_info& columnType = column.col_value.type();
-            if (columnType == typeid(bool) && colType != DataType::BOOLEAN)
-                return false;
-            if (columnType == typeid(char) && colType != DataType::CHAR)
-                return false;
-            if (columnType == typeid(short) && colType != DataType::SHORT)
-                return false;
-            if (columnType == typeid(int) && colType != DataType::INT)
-                return false;
-            if (columnType == typeid(long long) && colType != DataType::BIG_INT)
-                return false;
-            if (columnType == typeid(float) && colType != DataType::FLOAT)
-                return false;
-            if (columnType == typeid(double) && colType != DataType::DOUBLE)
-                return false;
-            if (columnType == typeid(std::string) && colType != DataType::STRING)
-                return false;
-            return true;
+            // These functions will be put in the client side later.
+            printTableData(rows);
         }
-
-        void addTotalBytes(const Column& column, uint16_t& total_bytes) const
-        {
-            const std::type_info& columnType = column.col_value.type();
-            if (columnType == typeid(bool))
-                total_bytes += sizeof(bool);
-            else if (columnType == typeid(char))
-                total_bytes += sizeof(char);
-            else if (columnType == typeid(short))
-                total_bytes += sizeof(short);
-            else if (columnType == typeid(int))
-                total_bytes += sizeof(int);
-            else if (columnType == typeid(long long))
-                total_bytes += sizeof(long long);
-            else if (columnType == typeid(float))
-                total_bytes += sizeof(float);
-            else if (columnType == typeid(double))
-                total_bytes += sizeof(double);
-            else if (columnType == typeid(std::string))
-                total_bytes += strlen(std::any_cast<std::string>(column.col_value).c_str()) + 2; //2 bytes added to store length of string
-        }
-
-        void printTableRow(std::unique_ptr<std::vector<Column>> row_data) {
+        void printTableRow(std::unique_ptr<std::vector<Column>>& row_data) {
             const std::filesystem::path file_path = currSelectedTablePath/(tSchema->schema_name+".json");
             json schema_json = tSchema->loadFromFile(file_path);
             logger->logInfo({"Table::",schema_json["table_name"]});
@@ -253,8 +127,7 @@ namespace Manager
             logger->logInfo({col_names});
             logger->logInfo({data});
         }
-        void printTableData(std::vector<std::unique_ptr<char[]>>* table) const
-        {
+        void printTableData(std::vector<std::unique_ptr<char[]>>* table) const{
             const std::filesystem::path file_path = currSelectedTablePath/(tSchema->schema_name+".json");
             json schema_json = tSchema->loadFromFile(file_path);
             logger->logInfo({"Table::",schema_json["table_name"]});

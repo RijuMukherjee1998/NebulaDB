@@ -47,7 +47,7 @@ namespace StorageEngine
             }
             logger = Utils::Logger::getInstance();
         };
-        void insertIntoPage(const std::vector<char>* new_data, uint16_t new_data_len);
+        void insertIntoPage(const std::vector<char>* new_data, uint16_t new_data_len, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot);
         void updateIntoPage(uint16_t slot_idx, std::vector<char>* new_data, uint16_t new_data_len);
         void deleteFromPage(uint16_t slot_idx);
         std::unique_ptr<char[]> getRowFromPage(uint16_t slot_idx);

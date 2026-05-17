@@ -6,20 +6,17 @@
 #define NEBULADB_INDEXER_H
 
 #include <filesystem>
-#include <type_traits>
+#include <memory>
 #include "Logger.h"
 #include "BPlusTree.h"
 #include "ISerializable.h"
+#include "PageData.h"
 #include "constants.h"
 #include "Column.h"
+#include "InternalStructs.h"
 
-#define CAST 0
 namespace StorageEngine
 {
-    // class IndexType {
-    // public:
-    //
-    // };
     template<typename Key , typename Value>
     class Indexer final: public ISerializable<std::pair<Key,Value>,std::vector<std::pair<Key,Value>>*> {
     public:
@@ -27,11 +24,12 @@ namespace StorageEngine
         std::string indexed_col_name;
         void loadIndex();
         void saveIndex(bool forcedSave);
-        void createIndex();
-        void updateOnInsert();
-        void updateOnDelete();
-        std::unique_ptr<std::vector<Column>> searchIndex(Key& key);
-        std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> searchIndexRange(Key& startKey, Key& endKey);
+        void createIndex(std::unique_ptr<std::vector<std::pair<Column,ROW_ID>>> col_datas);
+        void updateOnInsert(Column& col, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot);
+        size_t updateOnModify(std::unique_ptr<PageData>&, const Key& startKey, const Key& endKey);
+        size_t updateOnDelete(std::unique_ptr<PageData>& ,const Key& startKey, const Key& endKey);
+        std::unique_ptr<std::vector<Column>> searchIndex(std::unique_ptr<PageData>&pg_data, Key& key);
+        void searchIndexRange(Key& startKey, Key& endKey, std::vector<ROW_ID>* rows);
         std::string getIndxColName() {
             return index_name;
         }
@@ -44,7 +42,7 @@ namespace StorageEngine
         uint16_t changeCounter = 0;
         Utils::Logger* logger;
         void serialize() override;
-        std::vector<std::pair<Key,Value>>* deserialize();
+        std::vector<std::pair<Key,Value>>* deserialize() override;
         void insertDataIntoBtree(Column& data, PAGE_ID_TYPE& pg_id, SLOT_ID_TYPE& slot_id) {
             switch (data.col_type){
                 case DataType::CHAR: {
@@ -85,6 +83,6 @@ namespace StorageEngine
     };
 }
 
-#include "../StorageEngine/Indexer.tpp"
+//#include "../StorageEngine/Indexer.tpp"
 
 #endif //NEBULADB_INDEXER_H

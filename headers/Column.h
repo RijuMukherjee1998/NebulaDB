@@ -4,10 +4,10 @@
 
 #ifndef COLUMN_H
 #define COLUMN_H
-#include <any>
+
 #include <string>
 #include <nlohmann/json.hpp>
-
+#include "constants.h"
 
 using json = nlohmann::json;
 enum class DataType
@@ -31,7 +31,7 @@ struct Column
     bool is_primary_key = false;
     bool is_null = false;
     bool is_indexed = false;
-    std::any col_value{};
+    variant_data_t  col_value{};
 
     json toJson() const {
         return {

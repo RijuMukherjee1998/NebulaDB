@@ -251,6 +251,14 @@ void Manager::DBManager::insertIntoSelectedTable(std::vector<Column>& columns) c
     logger->logInfo({"Value Inserted in table"});
 }
 
+void Manager::DBManager::deleteRowsInSelectedTable(InternalQuery::OrQuery& selectQuery) {
+    if(curr_table_manager == nullptr)
+    {
+        logger->logWarn({"No Table Selected"});
+        return;
+    }
+    curr_table_manager->deleteRowsFromTable(selectQuery);
+}
 void Manager::DBManager::selectAllFromSelectedTable() const {
     if (curr_table_manager == nullptr)
     {

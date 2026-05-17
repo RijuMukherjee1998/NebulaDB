@@ -4,11 +4,13 @@
 
 #ifndef SCHEMA_H
 #define SCHEMA_H
-#include <any>
+
+#include <cstdint>
 #include <string>
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <filesystem>
+
 #include "Logger.h"
 #include "Column.h"
 
@@ -23,19 +25,40 @@ public:
     std::vector<Column> getColumns() {
         return columns;
     }
-    Column& getColumn(const std::string& column_name) {
+    bool isColIndexed(uint16_t& col_idx)
+    {
+        for(Column& column : columns){
+            if(column.col_id == col_idx)
+            {
+                return column.is_indexed;
+            }
+        }
+        return false;
+    }
+    uint16_t getColumnID(const std::string& column_name)
+    {
+        for(Column& column : columns){
+            if(column.col_name == column_name)
+            {
+                return column.col_id;
+            }
+        }
+        // 0 column_id means no column found
+        return 0;
+    }
+    Column& getColumn(const uint16_t col_id) {
         for (Column& column : columns) {
-            if (column.col_name == column_name) {
+            if (column.col_id == col_id) {
                 return column;
             }
         }
-        logger->logCritical({"No such column"});
+        logger->logError({"No such column"});
         return *(new Column());
     }
     // for now update column support updating index
-    void updateColumn(const std::string& column_name, bool is_indexed) {
+    void updateColumn(const uint16_t& column_id, bool is_indexed) {
         for (Column &column : columns) {
-            if (column.col_name == column_name) {
+            if (column.col_id == column_id) {
                 column.is_indexed = is_indexed;
                 return;
             }

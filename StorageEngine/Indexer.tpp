@@ -3,9 +3,9 @@
 //
 
 #include <fstream>
+#include <memory>
 #include "../headers/Indexer.h"
 #include "../headers/BPlusTree.h"
-#include "../headers/PageCache.h"
 #include "../headers/PageData.h"
 
 template<typename Key , typename Value>
@@ -20,23 +20,15 @@ StorageEngine::Indexer<Key,Value>::Indexer(const std::filesystem::path &selected
 }
 
 template<typename Key, typename Value>
-void StorageEngine::Indexer<Key, Value>::createIndex() {
-    PageData* pg_data = PageData::getNonNullInstance();
-    uint64_t currLogicalPageId = PageDirectory::getCurrentLogicalPage();
-    for (uint64_t i=0; i<currLogicalPageId; i++) {
-        auto col_data = pg_data->columnData(i, index_name);
-        if (col_data->empty())
-            logger->logError({"Sorry no such index col available"});
-        for(auto data : *col_data) {
-            insertDataIntoBtree(data.first, i, data.second);
-        }
+void StorageEngine::Indexer<Key, Value>::createIndex(std::unique_ptr<std::vector<std::pair<Column,ROW_ID>>> col_datas) {
+    for(auto data : *col_datas) {
+        insertDataIntoBtree(data.first,data.second.pg_id, data.second.slot_id);
     }
     saveIndex(true);
 }
 
 template<typename Key, typename Value>
-std::unique_ptr<std::vector<Column>> StorageEngine::Indexer<Key, Value>::searchIndex(Key& key) {
-    PageData* pg_data = PageData::getNonNullInstance();
+std::unique_ptr<std::vector<Column>> StorageEngine::Indexer<Key, Value>::searchIndex(std::unique_ptr<PageData>&pg_data, Key& key) {
     bool found = false;
     std::unique_ptr<std::vector<Column>> row = nullptr;
     std::unique_ptr<Value> val = bp_tree->searchKey(key,found);
@@ -49,8 +41,7 @@ std::unique_ptr<std::vector<Column>> StorageEngine::Indexer<Key, Value>::searchI
 }
 
 template<typename Key, typename Value>
-std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine::Indexer<Key,Value>::searchIndexRange(Key& startKey, Key& endKey){
-    PageData* pg_data = PageData::getNonNullInstance();
+std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine::Indexer<Key,Value>::searchIndexRange(std::unique_ptr<PageData>&pg_data, Key& startKey, Key& endKey){
     bool found = false;
     std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> row = nullptr;
     std::unique_ptr<std::vector<Value>> val = bp_tree->searchRange(startKey,endKey,found);
@@ -59,7 +50,26 @@ std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine
     }
     return row;
 }
-
+template<typename Key, typename Value>
+void StorageEngine::Indexer<Key, Value>::updateOnInsert(Column& updated_col, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot)
+{
+    insertDataIntoBtree(updated_col.col_value, pg_slot.first,pg_slot.second);
+}
+template<typename Key, typename Value>
+size_t StorageEngine::Indexer<Key, Value>::updateOnModify(std::unique_ptr<PageData>& pg_data, const Key& start_key, const Key& end_key)
+{
+    size_t num_mod_rows = 0;
+    auto del_rows = bp_tree->deleteRange(start_key, end_key);
+    
+}
+template<typename Key, typename Value>
+size_t StorageEngine::Indexer<Key,Value>::updateOnDelete(std::unique_ptr<PageData>& pg_data, const Key& start_key, const Key& end_key) {
+    size_t num_del_rows = 0;
+    auto del_rows = bp_tree->deleteRange(start_key, end_key);
+    num_del_rows = del_rows.size();
+    pg_data->delRows(del_rows);
+    return num_del_rows;
+}
 template<typename Key , typename Value>
 void StorageEngine::Indexer<Key,Value>::serialize() {
     // want to rewrite the entire file not append to it so std::ios::truc option is used
@@ -123,12 +133,3 @@ void StorageEngine::Indexer<Key, Value>::loadIndex() {
     }
     logger->logInfo({"Successfully loaded index tree"});
 }
-
-//template class StorageEngine::Indexer<variant_data_t,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-
-/*template class StorageEngine::Indexer<char,  std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-template class StorageEngine::Indexer<short, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-template class StorageEngine::Indexer<int,   std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-template class StorageEngine::Indexer<uint64_t, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-template class StorageEngine::Indexer<float, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;
-template class StorageEngine::Indexer<double, std::pair<PAGE_ID_TYPE, SLOT_ID_TYPE>>;*/
