@@ -6,7 +6,6 @@
 #include <memory>
 #include "../headers/Indexer.h"
 #include "../headers/BPlusTree.h"
-#include "../headers/PageData.h"
 
 template<typename Key , typename Value>
 StorageEngine::Indexer<Key,Value>::Indexer(const std::filesystem::path &selectedDBPath, const std::filesystem::path &selectedTablePath, const std::string& idx_name) {
@@ -27,49 +26,73 @@ void StorageEngine::Indexer<Key, Value>::createIndex(std::unique_ptr<std::vector
     saveIndex(true);
 }
 
+
+
 template<typename Key, typename Value>
-std::unique_ptr<std::vector<Column>> StorageEngine::Indexer<Key, Value>::searchIndex(std::unique_ptr<PageData>&pg_data, Key& key) {
-    bool found = false;
-    std::unique_ptr<std::vector<Column>> row = nullptr;
-    std::unique_ptr<Value> val = bp_tree->searchKey(key,found);
-    if (found) {
-        PAGE_ID_TYPE pg_id = val.get()->first;
-        SLOT_ID_TYPE slot_id = val.get()->second;
-        row = pg_data->singleRowData(pg_id, slot_id);
+void StorageEngine::Indexer<Key, Value>::searchIndexRange(Key& startKey, Key& endKey, std::vector<ROW_ID>* rows)
+{
+    if (rows == nullptr) {
+        return;
     }
-    return row;
+
+    bool found = false;
+    std::unique_ptr<std::vector<Value>> values = bp_tree->searchRange(startKey, endKey, found);
+    if (!found || values == nullptr) {
+        return;
+    }
+
+    for (const auto& value : *values) {
+        rows->push_back({value.first, value.second});
+    }
 }
 
 template<typename Key, typename Value>
-std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> StorageEngine::Indexer<Key,Value>::searchIndexRange(std::unique_ptr<PageData>&pg_data, Key& startKey, Key& endKey){
-    bool found = false;
-    std::unique_ptr<std::vector<std::unique_ptr<std::vector<Column>>>> row = nullptr;
-    std::unique_ptr<std::vector<Value>> val = bp_tree->searchRange(startKey,endKey,found);
-    if (found) {
-        row = pg_data->multiRowData(*val);
-    }
-    return row;
-}
-template<typename Key, typename Value>
 void StorageEngine::Indexer<Key, Value>::updateOnInsert(Column& updated_col, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot)
 {
-    insertDataIntoBtree(updated_col.col_value, pg_slot.first,pg_slot.second);
+    insertDataIntoBtree(updated_col, pg_slot.first, pg_slot.second);
+    changeCounter++;
+    saveIndex(false);
 }
+
 template<typename Key, typename Value>
-size_t StorageEngine::Indexer<Key, Value>::updateOnModify(std::unique_ptr<PageData>& pg_data, const Key& start_key, const Key& end_key)
+size_t StorageEngine::Indexer<Key, Value>::updateOnModify(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* modifiedRows)
 {
-    size_t num_mod_rows = 0;
-    auto del_rows = bp_tree->deleteRange(start_key, end_key);
-    
+    return updateOnDelete(startKey, endKey, modifiedRows);
 }
+
 template<typename Key, typename Value>
-size_t StorageEngine::Indexer<Key,Value>::updateOnDelete(std::unique_ptr<PageData>& pg_data, const Key& start_key, const Key& end_key) {
-    size_t num_del_rows = 0;
-    auto del_rows = bp_tree->deleteRange(start_key, end_key);
-    num_del_rows = del_rows.size();
-    pg_data->delRows(del_rows);
-    return num_del_rows;
+size_t StorageEngine::Indexer<Key, Value>::updateOnDelete(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* deletedRows)
+{
+    if (deletedRows == nullptr || deletedRows->empty()) {
+        return 0;
+    }
+
+    auto isTargetRow = [&](const Value& value) {
+        for (const auto& row : *deletedRows) {
+            if (value.first == row.pg_id && value.second == row.slot_id) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    size_t changedRows = 0;
+    std::vector<std::pair<Key, Value>> deletedEntries = bp_tree->deleteRange(startKey, endKey);
+    for (const auto& [key, value] : deletedEntries) {
+        if (isTargetRow(value)) {
+            changedRows++;
+            continue;
+        }
+        bp_tree->insert(key, value);
+    }
+
+    if (changedRows > 0) {
+        changeCounter += changedRows;
+        saveIndex(false);
+    }
+    return changedRows;
 }
+
 template<typename Key , typename Value>
 void StorageEngine::Indexer<Key,Value>::serialize() {
     // want to rewrite the entire file not append to it so std::ios::truc option is used

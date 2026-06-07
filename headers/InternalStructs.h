@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "Column.h"
 
+
 struct ROW_ID;
 namespace QueryEngine {
     using ROW = std::vector<Column>;
@@ -15,7 +16,7 @@ namespace QueryEngine {
                                      std::unique_ptr<std::vector<ROW>>>;
 }
 
-
+using ROW = std::vector<Column>;
 enum ExecConds
 {
     EQUAL = 0,
@@ -49,4 +50,4 @@ struct Filter{
     std::vector<QueryEngine::ExecCondition> col_filter;
 };
 
-#endif 
+#endif

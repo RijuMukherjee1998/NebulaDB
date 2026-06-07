@@ -205,10 +205,10 @@ public:
         }
         return deletedValue;
     }
-    std::vector<std::unique_ptr<Value>> deleteRange(const Key& startKey, const Key& endKey)
+    std::vector<std::pair<Key, Value>> deleteRange(const Key& startKey, const Key& endKey)
     {
         std::vector<Key> keysToDelete;
-        std::vector<std::unique_ptr<Value>> deletedValues;
+        std::vector<std::pair<Key, Value>> deletedValues;
         std::shared_ptr<Node> curr = root;
         if(!curr) return deletedValues;
         while(curr->type == NodeType::INTERNAL)
@@ -222,7 +222,6 @@ public:
         }
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
         bool endReached = false;
-        size_t min_keys_leaf = std::ceil(Order / 2);
         while(leaf && !endReached)
         {
             for(size_t i = 0; i < leaf->keys.size(); ++i)
@@ -230,7 +229,7 @@ public:
                 if(leaf->keys[i] >= startKey && leaf->keys[i] <= endKey)
                 {
                     keysToDelete.push_back(leaf->keys[i]);
-                    deletedValues.push_back(std::make_unique<Value>(leaf->values[i]));
+                    deletedValues.emplace_back(leaf->keys[i], leaf->values[i]);
                 }
                 if(i < leaf->keys.size() && leaf->keys[i] > endKey)
                 {
@@ -240,7 +239,7 @@ public:
             }
             leaf = leaf->next;
         }
-        int i = 0;
+        size_t i = 0;
         bool found = false;
         while (i < keysToDelete.size())
         {

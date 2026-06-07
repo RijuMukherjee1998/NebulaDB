@@ -5,7 +5,9 @@
 
 #ifndef LOGGER_H
 #define LOGGER_H
+
 #include <string>
+#include <memory>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>

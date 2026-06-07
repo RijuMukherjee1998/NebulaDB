@@ -38,11 +38,13 @@ QueryEngine::PlanType QueryEngine::Planner::GeneratePlan(InternalQuery::Query* q
     return p_type;
 }
 
-void QueryEngine::Planner::ExecutePlan(QueryEngine::PlanType& plan)
+QueryEngine::ExecResults QueryEngine::Planner::ExecutePlan(QueryEngine::PlanType& plan)
 {
-    ExecutionContext ctx{tSchema, pg_dir, idx_table};
-    std::visit([&ctx](auto& ptr) {
+    ExecutionContext ctx{db_path, table_path,tSchema, pg_dir, idx_table};
+    ExecResults results;
+    std::visit([&ctx, &results](auto& ptr) {
         /* call the execute on the plan --- execute implementation will vary based on ExecNode */
-        ptr->execute(ctx);
+        results = ptr->execute(ctx);
     }, plan);
+    return results;
 }

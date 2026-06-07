@@ -13,16 +13,18 @@
 
 namespace  QueryEngine{
 
-/* 
+/*
     * Plan → Create the ExecTree
     * Travel the ExecTree and run the executor
     * Executor → (produces RowIDs  or Inserts or CreateIndex) --> by executing each ExecNodes
     * Then:
     * for each RowID:
-    *    execute(select/update/delete)(RowID) 
+    *    execute(select/update/delete)(RowID)
 */
 using IndexTableType = std::unordered_map<uint16_t, std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>;
 struct ExecutionContext {
+    std::filesystem::path db_path;
+    std::filesystem::path table_path;
     Schema* schema;
     StorageEngine::PageDirectory* pg_dir;
     IndexTableType* idx_table;
@@ -52,7 +54,7 @@ class FilterNode : public ExecNode {
 class ScanNode : public ExecNode {
     public:
         ExecCondition exec_cond;
-        enum ScanType 
+        enum ScanType
         {
             IndexScan = 0,
             SeqScan
@@ -74,7 +76,7 @@ class SeqScanNode : public ScanNode {
 /* These needs the outut from filter nodes for further ops */
 class DeleteNode : public ExecNode {
     public:
-        std::unique_ptr<UnionNode> predicate = nullptr; 
+        std::unique_ptr<UnionNode> predicate = nullptr;
         ExecResults execute(ExecutionContext& ctx) override;
 };
 
@@ -103,7 +105,7 @@ class IndexNode : public ExecNode {
     public:
         COL_ID_TYPE col_id;
         ExecResults execute(ExecutionContext& ctx) override;
-}; 
+};
 
 class InvalidNode : public ExecNode{
     public:

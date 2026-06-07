@@ -9,32 +9,36 @@
 
 
 namespace QueryEngine {
-    using PlanType = std::variant<std::unique_ptr<QueryEngine::SelectNode>, std::unique_ptr<QueryEngine::UpdateNode>, 
+    using PlanType = std::variant<std::unique_ptr<QueryEngine::SelectNode>, std::unique_ptr<QueryEngine::UpdateNode>,
                 std::unique_ptr<QueryEngine::DeleteNode>, std::unique_ptr<QueryEngine::InsertNode>, std::unique_ptr<QueryEngine::IndexNode>
                 ,std::unique_ptr<QueryEngine::InvalidNode>>;
 
     class Planner {
         Utils::Logger* logger = nullptr;
+        std::filesystem::path db_path;
+        std::filesystem::path table_path;
         Schema* tSchema;
         StorageEngine::PageDirectory* pg_dir;
         IndexTableType* idx_table;
         public:
-            Planner(Schema* schema, StorageEngine::PageDirectory* pg_dir, IndexTableType* it)
+            Planner(const std::filesystem::path& db_path, const std::filesystem::path& table_path, Schema* schema, StorageEngine::PageDirectory* pg_dir, IndexTableType* it)
             {
+                this->db_path = db_path;
+                this->table_path = table_path;
                 tSchema = schema;
                 this->pg_dir = pg_dir;
                 idx_table = it;
                 logger = Utils::Logger::getInstance();
             }
             PlanType GeneratePlan(InternalQuery::Query* query);
-            void ExecutePlan(PlanType& plan);
+            ExecResults ExecutePlan(PlanType& plan);
         private:
             bool isColumnIndexed(uint16_t col_idx)
             {
                 return tSchema->isColIndexed(col_idx);
             }
             void PlanAndQuery(InternalQuery::AndQuery& a_query, std::unique_ptr<QueryEngine::FilterNode>& f_node)
-            { 
+            {
                 for(auto& cond : a_query.conditions) {
                     if(isColumnIndexed(cond.col_idx))
                     {
@@ -68,17 +72,20 @@ namespace QueryEngine {
                     u_node->filterNodes.emplace_back(std::move(f_node));
                 }
             }
-            
+
             PlanType PlanSelectQuery(InternalQuery::SelectQuery* selectQuery)
             {
-                std::unique_ptr<UnionNode> u_node = std::make_unique<UnionNode>();
-                PlanORQuery(selectQuery->predicate, u_node);
                 std::unique_ptr<SelectNode> select_node = std::make_unique<SelectNode>();
-                select_node->predicate = std::move(u_node);
+                if (!selectQuery->predicate.and_groups.empty())
+                {
+                    std::unique_ptr<UnionNode> u_node = std::make_unique<UnionNode>();
+                    PlanORQuery(selectQuery->predicate, u_node);
+                    select_node->predicate = std::move(u_node);
+                }
                 select_node->projections = selectQuery->projection;
                 return select_node;
             }
-            
+
             PlanType PlanUpdateQuery(InternalQuery::UpdateQuery* updateQuery)
             {
                 std::unique_ptr<UnionNode> u_node = std::make_unique<UnionNode>();

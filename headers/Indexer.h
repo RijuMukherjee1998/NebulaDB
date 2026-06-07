@@ -10,7 +10,6 @@
 #include "Logger.h"
 #include "BPlusTree.h"
 #include "ISerializable.h"
-#include "PageData.h"
 #include "constants.h"
 #include "Column.h"
 #include "InternalStructs.h"
@@ -26,9 +25,8 @@ namespace StorageEngine
         void saveIndex(bool forcedSave);
         void createIndex(std::unique_ptr<std::vector<std::pair<Column,ROW_ID>>> col_datas);
         void updateOnInsert(Column& col, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot);
-        size_t updateOnModify(std::unique_ptr<PageData>&, const Key& startKey, const Key& endKey);
-        size_t updateOnDelete(std::unique_ptr<PageData>& ,const Key& startKey, const Key& endKey);
-        std::unique_ptr<std::vector<Column>> searchIndex(std::unique_ptr<PageData>&pg_data, Key& key);
+        size_t updateOnModify(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* modifiedRows);
+        size_t updateOnDelete(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* deletedRows);
         void searchIndexRange(Key& startKey, Key& endKey, std::vector<ROW_ID>* rows);
         std::string getIndxColName() {
             return index_name;
@@ -46,32 +44,32 @@ namespace StorageEngine
         void insertDataIntoBtree(Column& data, PAGE_ID_TYPE& pg_id, SLOT_ID_TYPE& slot_id) {
             switch (data.col_type){
                 case DataType::CHAR: {
-                    char cdata = std::any_cast<char>(data.col_value);
+                    char cdata = std::get<char>(data.col_value);
                     bp_tree->insert(cdata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
                 case DataType::SHORT: {
-                    short sdata = std::any_cast<short>(data.col_value);
+                    short sdata = std::get<short>(data.col_value);
                     bp_tree->insert(sdata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
                 case DataType::INT: {
-                    int idata = std::any_cast<int>(data.col_value);
+                    int idata = std::get<int>(data.col_value);
                     bp_tree->insert(idata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
                 case DataType::BIG_INT: {
-                    uint64_t bidata = std::any_cast<uint64_t>(data.col_value);
+                    uint64_t bidata = std::get<uint64_t>(data.col_value);
                     bp_tree->insert(bidata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
                 case DataType::FLOAT: {
-                    float fdata = std::any_cast<float>(data.col_value);
+                    float fdata = std::get<float>(data.col_value);
                     bp_tree->insert(fdata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
                 case DataType::DOUBLE: {
-                    double ddata = std::any_cast<double>(data.col_value);
+                    double ddata = std::get<double>(data.col_value);
                     bp_tree->insert(ddata, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>(pg_id,slot_id));
                     break;
                 }
@@ -83,6 +81,6 @@ namespace StorageEngine
     };
 }
 
-//#include "../StorageEngine/Indexer.tpp"
+#include "../StorageEngine/Indexer.tpp"
 
 #endif //NEBULADB_INDEXER_H

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 #include <unordered_map>
@@ -18,6 +19,7 @@
 #include "Indexer.h"
 #include "constants.h"
 #include "InternalQuery.h"
+#include "InternalStructs.h"
 
 namespace Manager
 {
@@ -25,8 +27,8 @@ namespace Manager
     private:
         Schema* tSchema;
         Utils::Logger* logger;
-        std::filesystem::path currSelectedTablePath;
-        std::filesystem::path currSelectedDBPath;
+        std::filesystem::path db_path;
+        std::filesystem::path table_path;
         StorageEngine::PageDirectory* pageDirectory;
         StorageEngine::PageCache* pageCache;
         // will add support for string later
@@ -44,37 +46,20 @@ namespace Manager
         std::vector<ROW_ID> deleteRowsFromTable(InternalQuery::Query* deleteQuery);
         std::vector<ROW_ID> selectRowsFromTable(InternalQuery::Query* selectQuery);
         bool createIndexOnCol(InternalQuery::Query* indexQuery);
-        
+        void printTableData(QueryEngine::ExecResults& results) const;
+        std::string columnValueToString(const Column& column) const;
+
         void populateIndexTable() {
             index_table = new std::unordered_map<uint16_t, std::unique_ptr<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>>();
             for (Column col : tSchema->getColumns()) {
                 if (col.is_indexed) {
-                    auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
+                    auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(db_path, table_path, col.col_name);
                     idx->loadIndex();
                     index_table->insert({col.col_id,std::move(idx)});
                 }
             }
         }
-        void addToIndexTable(Column& col) {
-            auto idx = std::make_unique<StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>>(currSelectedDBPath, currSelectedTablePath, col.col_name);
-            idx->createIndex();
-            index_table->insert({col.col_id,std::move(idx)});
-            logger->logInfo({"Index created successfully"});
-        }
-        void selectAllFromTable() const{
-            const auto rows = new std::vector<std::unique_ptr<char[]>>();
-            auto slots = new std::vector<SLOT_ID_TYPE>();
-            const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
-            for (uint64_t i=0; i<= currLogicalPageId; i++)
-            {
-                const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
-                currPage->getAllRowsFromPage(rows,slots);
-                pageCache->unPinPage(i);
-            }
-            // These functions will be put in the client side later.
-            printTableData(rows);
-        }
-        void printTableRow(std::unique_ptr<std::vector<Column>>& row_data) {
+        /*void printTableRow(std::unique_ptr<std::vector<Column>>& row_data) {
             const std::filesystem::path file_path = currSelectedTablePath/(tSchema->schema_name+".json");
             json schema_json = tSchema->loadFromFile(file_path);
             logger->logInfo({"Table::",schema_json["table_name"]});
@@ -233,7 +218,7 @@ namespace Manager
                 logger->logInfo({print_data});
             }
             logger->logInfo({"________________________________"});
-        }
+            }*/
     };
 } //MANAGER
 

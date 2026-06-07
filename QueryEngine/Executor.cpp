@@ -7,22 +7,21 @@
 using EC = QueryEngine::ExecutionContext;
 QueryEngine::ExecResults QueryEngine::InsertNode::execute(EC& ctx)
 {
-    ExecResults results;
-
-    //TODO::
-    // do the insert now.should pagedata handle it?
+    StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
+    ROW_ID row_id = pg_ops.InsertRow(values);
+    std::unique_ptr<std::vector<ROW_ID>> results_vec = std::make_unique<std::vector<ROW_ID>>();
+    results_vec->push_back(row_id);
+    ExecResults results = std::move(results_vec);
     return results;
-
 }
 
 QueryEngine::ExecResults QueryEngine::IndexNode::execute(EC& ctx)
 {
     ExecResults results;
-
-    //TODO::
-    // do the indexing now.should pagedata handle it?
+    StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
+    pg_ops.IndexColumn(col_id);
+    // Indexing is done, results are anyways thrown away ... so no need to fill them.
     return results;
-
 }
 
 QueryEngine::ExecResults QueryEngine::UpdateNode::execute(EC& ctx)
@@ -31,8 +30,8 @@ QueryEngine::ExecResults QueryEngine::UpdateNode::execute(EC& ctx)
     if(predicate != nullptr){
         results = predicate->execute(ctx);
     }
-    //TODO::
-    // do the update now.should pagedata handle it?
+    StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
+    pg_ops.UpdateRows(results,updates);
     return results;
 }
 
@@ -42,19 +41,23 @@ QueryEngine::ExecResults QueryEngine::DeleteNode::execute(EC& ctx)
     if(predicate != nullptr){
         results = predicate->execute(ctx);
     }
-    StorageEngine::PageOps pg_ops(ctx.schema,ctx.pg_dir,ctx.idx_table);
+    StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     pg_ops.DeleteRows(results);
     return results;
 }
 
 QueryEngine::ExecResults QueryEngine::SelectNode::execute(EC& ctx)
 {
+    StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     ExecResults prev_result;
     if(predicate != nullptr){
         prev_result = predicate->execute(ctx);
     }
-    StorageEngine::PageOps pg_ops(ctx.schema,ctx.pg_dir,ctx.idx_table);
-    ExecResults results = pg_ops.ProjectOnRows(prev_result, projections); 
+    else {
+        Filter empty_filter;
+        prev_result = pg_ops.FullTableScan(empty_filter);
+    }
+    ExecResults results = pg_ops.ProjectOnRows(prev_result, projections);
     return results;
 }
 
@@ -102,7 +105,7 @@ QueryEngine::ExecResults QueryEngine::FilterNode::execute(EC& ctx)
 
 QueryEngine::ExecResults QueryEngine::IndexScanNode::execute(EC& ctx)
 {
-    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.schema,ctx.pg_dir,ctx.idx_table);
+    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     Filter filter;
     filter.col_filter = {this->exec_cond};
     ExecResults results = page_ops->IndexTableScan(filter);
@@ -111,9 +114,14 @@ QueryEngine::ExecResults QueryEngine::IndexScanNode::execute(EC& ctx)
 
 QueryEngine::ExecResults QueryEngine::SeqScanNode::execute(EC& ctx)
 {
-    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.schema,ctx.pg_dir,ctx.idx_table);
+    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     Filter filter;
     filter.col_filter = {this->exec_cond};
     ExecResults results = page_ops->FullTableScan(filter);
     return results;
+}
+
+QueryEngine::ExecResults QueryEngine::InvalidNode::execute(EC&)
+{
+    return std::make_unique<std::vector<ROW_ID>>();
 }

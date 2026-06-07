@@ -8,7 +8,7 @@
 #include <variant>
 #include <cstdint>
 
-using variant_data_t = std::variant<char, short, int, uint64_t, float, double, std::string>;
+using variant_data_t = std::variant<bool, char, short, int, uint64_t, float, double, std::string>;
 
 const std::string BASE_NDB_PATH = "/var/tmp/ndb/";
 const std::string LOG_DIR_PATH = "/var/tmp/ndb/logs/";

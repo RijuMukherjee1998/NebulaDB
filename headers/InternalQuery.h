@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <memory>
 
-#include "InternalStructs.h"
 #include "constants.h"
 
 namespace InternalQuery {
@@ -58,7 +57,7 @@ class SelectQuery : public Query {
 public:
     QueryType qtype = QueryType::SELECT_QUERY;
     OrQuery predicate;
-    std::vector<uint16_t> projection; 
+    std::vector<uint16_t> projection;
 };
 
 class UpdateQuery : public Query {
@@ -96,6 +95,7 @@ public:
         DELETE,
         INDEX_COL
     };
+    std::string table_name;
     TableQueryType type;
     std::unique_ptr<Query> query;
 };
