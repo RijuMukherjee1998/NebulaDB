@@ -4,7 +4,25 @@
 
 #include <utility>
 #include <fstream>
+#include <stdexcept>
 #include "../headers/Schema.h"
+
+namespace {
+DataType parseDataType(const json& column, const bool legacy_schema)
+{
+    const int type_code = column.value("col_type", static_cast<int>(DataType::INVALID));
+
+    if (legacy_schema)
+    {
+        if (type_code == 3)
+            return DataType::INT;
+        if (type_code == 5)
+            return DataType::STRING;
+    }
+
+    return static_cast<DataType>(type_code);
+}
+}
 
 Schema::Schema(std::string tableName, std::vector<Column> columns)
 {
@@ -57,12 +75,27 @@ Schema* Schema::loadFromFileSchema(const std::filesystem::path& filePath)
     }
     json j;
     file >> j;
-    std::string table_name = j["table_name"];
+    if (!j.contains("columns") || !j["columns"].is_array())
+    {
+        logger->logCritical({"Invalid schema file: missing columns array: ", filePath.string()});
+        throw std::runtime_error("Invalid schema file");
+    }
+
+    std::string table_name = j.value("table_name", filePath.stem().string());
     std::vector<Column> columns;
+    uint16_t fallback_col_id = 1;
     for (const auto& column : j["columns"])
     {
-        columns.push_back(Column(column["col_id"],column["col_name"], column["col_type"], column["is_primary_key"]
-            ,column["is_null"], column["is_indexed"]));
+        const bool legacy_schema = !column.contains("col_id") || !column.contains("is_indexed");
+        columns.push_back(Column{
+            column.value("col_id", fallback_col_id),
+            column.value("col_name", std::string{}),
+            parseDataType(column, legacy_schema),
+            column.value("is_primary_key", false),
+            column.value("is_null", false),
+            column.value("is_indexed", false)
+        });
+        fallback_col_id++;
     }
     return new Schema(table_name, columns);
 }

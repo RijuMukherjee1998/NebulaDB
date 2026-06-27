@@ -2,170 +2,155 @@
 // Created by Riju Mukherjee on 08-02-2025.
 //
 
+#include <memory>
+#include <type_traits>
 #include "../headers/TableManager.h"
-
-#include <iostream>
-
 #include "../headers/PageDirectory.h"
+#include "../headers/Planner.h"
 #include "../headers/Schema.h"
-#include "../headers/Page.h"
 #include "../headers/PageCache.h"
 
 
 Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, Schema* schema):
     tSchema(schema)
 {
-    this->currSelectedDBPath = currSelectedDBPath;
-    this->currSelectedTablePath = currSelectedTablePath;
+    this->db_path = currSelectedDBPath;
+    this->table_path = currSelectedTablePath;
     pageDirectory = new StorageEngine::PageDirectory(currSelectedDBPath, currSelectedTablePath);
     pageCache = StorageEngine::PageCache::getInstance(currSelectedTablePath, pageDirectory);
-    pgData = StorageEngine::PageData::getPageDataInstance(tSchema);
     logger = Utils::Logger::getInstance();
     pageDirectory->loadPageDirectory();
     populateIndexTable();
 }
 
-void Manager::TableManager::createIndexOnCol(const std::string &idx_name) {
-    if (tSchema->getColumn(idx_name).is_indexed == true) {
-        logger->logWarn({"Column ", idx_name, " already indexed"});
-        return;
-    }
-    tSchema->updateColumn(idx_name, true);
-    Column col = tSchema->getColumn(idx_name);
-    addToIndexTable(col);
-}
-
-void Manager::TableManager::getRowByIndex(const std::string &idx_name,variant_data_t& key) {
-    if (tSchema->getColumn(idx_name).is_indexed == false) {
-        logger->logWarn({"Column ", idx_name, " not indexed"});
-        return;
-    }
-    Column col = tSchema->getColumn(idx_name);
-    auto indexer = getIndexFromIndexTable(col);
-    auto row = indexer->searchIndex(key);
-    printTableRow(std::move(row));
-}
-
-void Manager::TableManager::getRowsByIndexRange(const std::string &idx_name,variant_data_t& start_key, variant_data_t& end_key) {
-    if (tSchema->getColumn(idx_name).is_indexed == false) {
-        logger->logWarn({"Column ", idx_name, " not indexed"});
-        return;
-    }
-    Column col = tSchema->getColumn(idx_name);
-    auto indexer = getIndexFromIndexTable(col);
-    auto rows = indexer->searchIndexRange(start_key, end_key);
-    for (auto& row : *rows) {
-        printTableRow(std::move(row));
-    }
-}
-
-void Manager::TableManager::insertIntoTable(std::vector<Column>& columns) const
+void Manager::TableManager::ExecuteQuery(InternalQuery::TableQuery& tbl_query)
 {
-    uint16_t totalBytes = 0;
-    if (currSelectedTablePath.empty())
+    auto _query = tbl_query.query.get();
+    if(_query == nullptr)
     {
-        logger->logCritical({"Table is not selected"});
+        logger->logError({"Empty Query"});
         return;
     }
-    for (const auto& column : columns)
+    if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::INSERT)
     {
-        if (!isColumnTypeMatching(column, column.col_type))
-        {
-            logger->logError({"Bad column type ... not matching schema"});
-            return;
-        }
-        addTotalBytes(column, totalBytes);
+        insertIntoTable(_query);
     }
-    std::vector<char> buffer;
-    std::vector<char>* bufferPtr = &buffer;
-    const std::vector<char>* currBufferPtr = bufferPtr;
-    uint16_t currBytesLeft = totalBytes;
-    for (Column& column : columns)
+    else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::INDEX_COL)
     {
-        valueToBuffer(column, bufferPtr, currBytesLeft);
+        createIndexOnCol(_query);
     }
-
-    pageDirectory->updateOnInsert(totalBytes);
-    const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
-    const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(currLogicalPageId);
-    currPage->insertIntoPage(currBufferPtr, totalBytes);
-    pageCache->markPageDirty(currLogicalPageId);
-    pageCache->unPinPage(currLogicalPageId);
-}
-
-
-void Manager::TableManager::selectAllFromTable() const
-{
-    const auto rows = new std::vector<std::unique_ptr<char[]>>();
-    auto slots = new std::vector<SLOT_ID_TYPE>();
-    const uint64_t currLogicalPageId = pageDirectory->getCurrentLogicalPage();
-    for (int i=0; i<= currLogicalPageId; i++)
+    else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::UPDATE)
     {
-        const std::shared_ptr<StorageEngine::Page> currPage = pageCache->getPageFromCache(i);
-        currPage->getAllRowsFromPage(rows,slots);
-        pageCache->unPinPage(i);
+        updateRowsInTable(_query);
     }
-    // These functions will be put in the client side later.
-    printTableData(rows);
+    else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::DELETE)
+    {
+        deleteRowsFromTable(_query);
+    }
+    else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::SELECT)
+    {
+        selectRowsFromTable(_query);
+    }
 }
 
 void Manager::TableManager::flushAll() const
 {
-    tSchema->updateSchemaFile(currSelectedTablePath);
+    tSchema->updateSchemaFile(table_path);
     pageCache->flushDirtyPages();
     pageDirectory->savePageDirectory(true);
 }
-void Manager::TableManager::valueToBuffer(const Column& column, std::vector<char>* buffer, uint16_t& remainingSize) const
-{
-    try {
-        auto appendToBuffer = [&](const void* data, const size_t size) {
-            if (remainingSize >= size) {
-                buffer->insert(buffer->end(), static_cast<const char*>(data), static_cast<const char*>(data) + size);
-                remainingSize -= size;
-            } else {
-                throw std::runtime_error("Insufficient buffer space!");
-            }
-        };
 
-        switch (column.col_type) {
-        case DataType::BOOLEAN: {
-                const auto value = std::any_cast<bool>(column.col_value);
-                appendToBuffer(&value, sizeof(bool));
-                break;
+ROW_ID Manager::TableManager::insertIntoTable(InternalQuery::Query* insertQuery)
+{
+    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::PlanType plan = planner.GeneratePlan(insertQuery);
+    planner.ExecutePlan(plan);
+    return {};
+}
+
+std::vector<ROW_ID> Manager::TableManager::updateRowsInTable(InternalQuery::Query* updateQuery)
+{
+    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::PlanType plan = planner.GeneratePlan(updateQuery);
+    planner.ExecutePlan(plan);
+    return {};
+}
+
+std::vector<ROW_ID> Manager::TableManager::deleteRowsFromTable(InternalQuery::Query* deleteQuery)
+{
+    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::PlanType plan = planner.GeneratePlan(deleteQuery);
+    planner.ExecutePlan(plan);
+    return {};
+}
+
+std::vector<ROW_ID> Manager::TableManager::selectRowsFromTable(InternalQuery::Query* selectQuery)
+{
+    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::PlanType plan = planner.GeneratePlan(selectQuery);
+    QueryEngine::ExecResults results = planner.ExecutePlan(plan);
+    printTableData(results);
+    return {};
+}
+
+bool Manager::TableManager::createIndexOnCol(InternalQuery::Query* indexQuery)
+{
+    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::PlanType plan = planner.GeneratePlan(indexQuery);
+    planner.ExecutePlan(plan);
+    return true;
+}
+
+std::string Manager::TableManager::columnValueToString(const Column& column) const
+{
+    return std::visit([](const auto& value) -> std::string {
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, bool>) {
+            return value ? "true" : "false";
         }
-        case DataType::CHAR: {
-                const auto value = std::any_cast<char>(column.col_value);
-                appendToBuffer(&value, sizeof(char));
-                break;
+        else if constexpr (std::is_same_v<T, char>) {
+            return std::string(1, value);
         }
-        case DataType::SHORT: {
-                const auto value = std::any_cast<short>(column.col_value);
-                appendToBuffer(&value, sizeof(short));
-                break;
+        else if constexpr (std::is_same_v<T, std::string>) {
+            return value;
         }
-        case DataType::INT: {
-                const auto value = std::any_cast<int>(column.col_value);
-                appendToBuffer(&value, sizeof(int));
-                break;
+        else {
+            return std::to_string(value);
         }
-        case DataType::FLOAT: {
-                const auto value = std::any_cast<float>(column.col_value);
-                appendToBuffer(&value, sizeof(float));
-                break;
+    }, column.col_value);
+}
+
+void Manager::TableManager::printTableData(QueryEngine::ExecResults& results) const
+{
+    logger->logInfo({"Table::", tSchema->schema_name});
+
+    std::visit([this](auto& ptr) {
+        if (!ptr || ptr->empty()) {
+            logger->logInfo({"No rows selected"});
+            logger->logInfo({"________________________________"});
+            return;
         }
-        case DataType::STRING: {
-                const auto value = std::any_cast<std::string>(column.col_value);
-                const size_t str_size = value.length();
-                appendToBuffer(&str_size, 2);
-                appendToBuffer(value.c_str(), value.size());
-                break;
+
+        using T = std::decay_t<decltype(*ptr)>;
+        if constexpr (std::is_same_v<T, std::vector<QueryEngine::ROW>>) {
+            std::string col_names;
+            for (const auto& col : ptr->front()) {
+                col_names += col.col_name + "    ";
+            }
+            logger->logInfo({col_names});
+
+            for (const auto& row : *ptr) {
+                std::string print_data;
+                for (const auto& col : row) {
+                    print_data += columnValueToString(col) + "    ";
+                }
+                logger->logInfo({print_data});
+            }
         }
-        default:
-            throw std::invalid_argument("Unsupported DataType!");
+        else if constexpr (std::is_same_v<T, std::vector<ROW_ID>>) {
+            logger->logInfo({"Selected row IDs: ", std::to_string(ptr->size())});
         }
-    } catch (const std::bad_any_cast& e) {
-        logger->logError({"Bad any_cast: ", e.what()});
-    } catch (const std::exception& e) {
-        logger->logError({"Unhandled exception: ", e.what()});
-    }
+
+        logger->logInfo({"________________________________"});
+    }, results);
 }

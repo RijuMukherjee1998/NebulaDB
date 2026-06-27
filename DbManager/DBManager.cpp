@@ -2,20 +2,17 @@
 // Created by Riju Mukherjee on 31-01-2025.
 //
 
-#include <algorithm>
+
 #include <filesystem>
 #include <vector>
 #include "../headers/DBManager.h"
 
-#include <fstream>
-
-#include "../headers/PageDirectory.h"
 #include "../headers/TableManager.h"
 #include "../headers/constants.h"
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
 
-Manager::DBManager::DBManager():curr_table_manager(nullptr)
+Manager::DBManager::DBManager()
 {
     logger = Utils::Logger::getInstance();
     logger->logInfo({"DB Initialized"});
@@ -54,6 +51,7 @@ std::vector<std::filesystem::path> Manager::DBManager::listAllTables() const
     {
         if (entry.is_directory())
         {
+            logger->logInfo({entry.path().filename().string()});
             tables.emplace_back(entry.path());
         }
     }
@@ -98,7 +96,7 @@ void Manager::DBManager::deleteDB(const std::string* db_name)
 
 void Manager::DBManager::selectDB(const std::string* db_name)
 {
-    const std::string db_path =BASE_NDB_PATH +  *db_name;
+    const std::string db_path = BASE_NDB_PATH +  *db_name;
     std::filesystem::path db_name_fs = db_path;
     for (const std::vector<std::filesystem::path> databases = listAllDB(); auto const& entry : databases)
     {
@@ -112,10 +110,14 @@ void Manager::DBManager::selectDB(const std::string* db_name)
     logger->logWarn({"Database",*db_name,"not found"});
 }
 
-void Manager::DBManager::shutdownDB() const
+void Manager::DBManager::shutdownDB()
 {
-    if (curr_table_manager != nullptr)
-        curr_table_manager->flushAll();
+    for(auto it = table_manager_table.begin(); it != table_manager_table.end(); ++it)
+    {
+        it->second->flushAll();
+        delete it->second;
+    }
+    table_manager_table.clear();
 }
 void Manager::DBManager::showAllTables() const
 {
@@ -131,36 +133,34 @@ void Manager::DBManager::showAllTables() const
     }
 }
 
-void Manager::DBManager::selectTable(const std::string* table_name)
+Manager::TableManager* Manager::DBManager::cacheTableManager(const std::string* table_name)
 {
+    TableManager* curr_table_manager = nullptr;
+    std::filesystem::path currSelectedTablePath;
     const std::filesystem::path  tbl_name_fs = *table_name;
     if (currSelectedDBPath.empty())
     {
         logger->logWarn({"Cannot Select Table...No Database is selected"});
-        return;
-    }
-    if (currSelectedTablePath == currSelectedDBPath/tbl_name_fs)
-    {
-        logger->logWarn({"Table already selected",*table_name});
+        return nullptr;
     }
     const std::vector<std::filesystem::path> tables = listAllTables();
     if (tables.empty())
     {
         logger->logWarn({"Cannot Select Table , No tables in DB"});
-        return;
+        return nullptr;
     }
     for (auto const& entry : tables)
     {
         if (entry.filename().compare(tbl_name_fs) == 0)
         {
             logger->logInfo({"Table", tables.back().filename().string(),"Selected"});
-            currSelectedTablePath = std::move(currSelectedDBPath/tbl_name_fs);
+            currSelectedTablePath = currSelectedDBPath/tbl_name_fs;
             logger->logInfo({"Curr Table Path = ",currSelectedTablePath.string()});
         }
     }
     if (table_manager_table.find(*table_name) != table_manager_table.end())
     {
-        curr_table_manager = table_manager_table[*table_name];
+        return table_manager_table[*table_name];
     }
     else
     {
@@ -168,10 +168,12 @@ void Manager::DBManager::selectTable(const std::string* table_name)
         curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, sch);
         table_manager_table[*table_name] = curr_table_manager;
     }
+    return curr_table_manager;
 }
 
 void Manager::DBManager::createTable(const std::string* table_name, Schema* schema)
 {
+    TableManager* curr_table_manager = nullptr;
     const std::vector<std::filesystem::path> tables = listAllTables();
     if (currSelectedDBPath.empty())
     {
@@ -204,6 +206,7 @@ void Manager::DBManager::createTable(const std::string* table_name, Schema* sche
 
 void Manager::DBManager::deleteTable(const std::string* table_name)
 {
+    std::filesystem::path currSelectedTablePath="";
     if (currSelectedDBPath.empty())
     {
         logger->logWarn({"Cannot Delete Table...No Database is selected"});
@@ -223,54 +226,17 @@ void Manager::DBManager::deleteTable(const std::string* table_name)
             logger->logInfo({"Table", tables.back().filename().string(),"Deleted"});
             std::filesystem::remove_all(entry);
             if (entry.filename().compare(currSelectedTablePath))
-                curr_table_manager = nullptr;
+                currSelectedTablePath.clear();
             return;
         }
     }
     logger->logWarn({"Cannot Delete Table,",*table_name,"not found"});
 }
-void Manager::DBManager::createIndexOnTable(const std::string *table_name, const std::string &idx_col_name) const {
 
-    if (curr_table_manager == nullptr) {
-        logger->logError({"No table selected"});
-        return;
-    }
-    curr_table_manager->createIndexOnCol(idx_col_name);
-
-}
-
-void Manager::DBManager::insertIntoSelectedTable(std::vector<Column>& columns) const
+void Manager::DBManager::executeQueryOnTable(InternalQuery::TableQuery &tbl_query)
 {
-    if (curr_table_manager == nullptr)
-    {
-        logger->logCritical({"No table selected"});
+    TableManager* table_manager = cacheTableManager(&tbl_query.table_name);
+    if (table_manager == nullptr)
         return;
-    }
-    curr_table_manager->insertIntoTable(columns);
-    logger->logInfo({"Value Inserted in table"});
-}
-
-void Manager::DBManager::selectAllFromSelectedTable() const {
-    if (curr_table_manager == nullptr)
-    {
-        logger->logCritical({"No table selected"});
-        return;
-    }
-    curr_table_manager->selectAllFromTable();
-}
-
-void Manager::DBManager::selectRowFromTableByIndex(std::string& idx_name, variant_data_t& key) const {
-    if (curr_table_manager == nullptr) {
-        logger->logCritical({"No table selected"});
-        return;
-    }
-    curr_table_manager->getRowByIndex(idx_name,key);
-}
-
-void Manager::DBManager::selectRowsFromTableByIndexRange(std::string& idx_name, variant_data_t& start_key, variant_data_t& end_key) const {
-    if (curr_table_manager == nullptr) {
-        logger->logCritical({"No table selected"});
-        return;
-    }
-    curr_table_manager->getRowsByIndexRange(idx_name,start_key, end_key);
+   table_manager->ExecuteQuery(tbl_query);
 }

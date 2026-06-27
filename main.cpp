@@ -3,10 +3,13 @@
 //
 
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 #include "headers/DBManager.h"
+#include "headers/InternalQuery.h"
 #include "headers/ThreadPool.h"
 
 std::string random_string(const size_t min_len, const size_t max_len, bool nums = false) {
@@ -45,7 +48,7 @@ std::string random_string(const size_t min_len, const size_t max_len, bool nums 
     }
     return result;
 }
-
+/*
 int  WriteAndReadAll_EX() {
      try
     {
@@ -238,10 +241,81 @@ void FindDataByIndex() {
     dbmanager.deleteTable(&tbl_name);
     dbmanager.deleteDB(&db_name);
 }
+*/
 int main()
 {
-    // WriteAndReadAll_EX();
-    WriteAndCreateIndex_EX();
-    FindDataByIndex();
+    std::cout << "Hello, NebulaDB" << std::endl;
+    ThreadPool::getInstance();
+    Manager::DBManager dbmanager;
+    dbmanager.showAllDB();
+    const std::string db_name = "AadharDB";
+    const std::string tbl_name = "Aadhar";
+    dbmanager.createDB(&db_name);
+    dbmanager.showAllDB();
+    dbmanager.selectDB(&db_name);
+    Schema mySchema(tbl_name, {
+        {1,"sno", DataType::INT, true, false, false},
+        {2,"name", DataType::STRING, false, false,false},
+        {3,"age", DataType::INT, false, false, false},
+        {4,"aadhar_id", DataType::STRING, true, false, false}
+    });
+    dbmanager.createTable(&tbl_name, &mySchema);
+    dbmanager.showAllTables();
+
+    /* This inserts a single row into the Aadhar table */
+    auto insert_query = std::make_unique<InternalQuery::InsertQuery>();
+    insert_query->InternalQuery::Query::qtype = InternalQuery::QueryType::INSERT_QUERY;
+    insert_query->values = {
+        1,
+        std::string("Riju"),
+        25,
+        std::string("354268570149")
+    };
+
+    InternalQuery::TableQuery tbl_query;
+    tbl_query.table_name = tbl_name;
+    tbl_query.type = InternalQuery::TableQuery::TableQueryType::INSERT;
+    tbl_query.query = std::move(insert_query);
+
+    dbmanager.executeQueryOnTable(tbl_query);
+
+    /* This is the index column query for age*/
+    auto index_col_query = std::make_unique<InternalQuery::IndexQuery>();
+    index_col_query->InternalQuery::Query::qtype = InternalQuery::QueryType::INDEX_QUERY;
+    index_col_query->col_id = 3;
+
+    InternalQuery::TableQuery index_tbl_query;
+    index_tbl_query.table_name = tbl_name;
+    index_tbl_query.type = InternalQuery::TableQuery::TableQueryType::INDEX_COL;
+    index_tbl_query.query = std::move(index_col_query);
+
+    dbmanager.executeQueryOnTable(index_tbl_query);
+
+    auto index_col_query_1 = std::make_unique<InternalQuery::IndexQuery>();
+    index_col_query_1->InternalQuery::Query::qtype = InternalQuery::QueryType::INDEX_QUERY;
+    index_col_query_1->col_id = 1;
+
+    InternalQuery::TableQuery index_tbl_query_1;
+    index_tbl_query_1.table_name = tbl_name;
+    index_tbl_query_1.type = InternalQuery::TableQuery::TableQueryType::INDEX_COL;
+    index_tbl_query_1.query = std::move(index_col_query_1);
+    dbmanager.executeQueryOnTable(index_tbl_query_1);
+
+
+    /* This selects all rows from the Aadhar table */
+    auto select_all_query = std::make_unique<InternalQuery::SelectQuery>();
+    select_all_query->InternalQuery::Query::qtype = InternalQuery::QueryType::SELECT_QUERY;
+    select_all_query->projection = {2, 4};
+
+    InternalQuery::TableQuery select_tbl_query;
+    select_tbl_query.table_name = tbl_name;
+    select_tbl_query.type = InternalQuery::TableQuery::TableQueryType::SELECT;
+    select_tbl_query.query = std::move(select_all_query);
+
+    dbmanager.executeQueryOnTable(select_tbl_query);
+
+    
+
+
     return 0;
 }

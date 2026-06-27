@@ -51,7 +51,7 @@ namespace StorageEngine
         void lookIntoPDMap()const;
 
     private:
-        bool findFreeSpace(const uint16_t, uint64_t&) const;
+        bool findFreeSpace(uint64_t&) const;
         void serialize() override;
         std::vector<PDEntry> deserialize() override;
     private:

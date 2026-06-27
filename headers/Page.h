@@ -7,6 +7,10 @@
 
 #include <cstdint>
 #include <list>
+#include <atomic>
+#include <memory>
+#include <vector>
+#include "InternalStructs.h"
 #include "constants.h"
 #include "Logger.h"
 
@@ -47,12 +51,13 @@ namespace StorageEngine
             }
             logger = Utils::Logger::getInstance();
         };
-        void insertIntoPage(const std::vector<char>* new_data, uint16_t new_data_len);
-        void updateIntoPage(uint16_t slot_idx, std::vector<char>* new_data, uint16_t new_data_len);
+        void insertIntoPage(std::vector<char>* new_data, uint16_t new_data_len, ROW_ID& pg_slot);
+        void updateIntoPage(uint16_t slot_idx, std::vector<char>* new_data, uint16_t new_data_len, bool& newPageInsert);
         void deleteFromPage(uint16_t slot_idx);
         std::unique_ptr<char[]> getRowFromPage(uint16_t slot_idx);
+        uint16_t getRowLength(uint16_t slot_idx) const;
         std::unique_ptr<std::vector<std::unique_ptr<char[]>>> getRowsFromPage(const std::vector<uint16_t>& slot_idxs);
-        void getAllRowsFromPage(std::vector<std::unique_ptr<char[]>>* rows, std::vector<SLOT_ID_TYPE>* slots) const;
+        void getAllRowsFromPage(std::vector<std::unique_ptr<char[]>>* rows, std::vector<SLOT_ID_TYPE>* all_slots) const;
 
     };
 }

@@ -1,0 +1,43 @@
+{
+  "name": "NebulaDB Dev",
+
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "llvm-vs-code-extensions.vscode-clangd"
+      ],
+      "settings": {
+        "cmake.generator": "Ninja",
+        "cmake.configureArgs": [
+          "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "-DCMAKE_BUILD_TYPE=Debug",
+          "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+          "-DCMAKE_C_COMPILER=gcc",
+          "-DCMAKE_CXX_COMPILER=g++"
+        ],
+        "C_Cpp.default.compilerPath": "/usr/bin/g++"
+      }
+    }
+  },
+
+  // "mounts": [
+  //   "source=vcpkg-cache,target=/opt/vcpkg/installed,type=volume",
+  //   "source=vcpkg-buildtrees,target=/opt/vcpkg/buildtrees,type=volume",
+  //   "source=vcpkg-downloads,target=/opt/vcpkg/downloads,type=volume"
+  // ],
+
+  //"postCreateCommand": "cmake -B build -S . -G Ninja -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
+
+  "remoteUser": "vscode"
+}

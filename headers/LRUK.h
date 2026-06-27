@@ -5,6 +5,7 @@
 #ifndef LRUK_H
 #define LRUK_H
 
+#include <cstdint>
 #include <deque>
 #include <unordered_map>
 #include <queue>
@@ -19,7 +20,7 @@ struct PageEntry
 class LRU_K
 {
 private:
-    int K;  // Number of accesses to track
+    uint64_t K;  // Number of accesses to track
     std::unordered_map<uint64_t, PageEntry>* page_table = new std::unordered_map<uint64_t, PageEntry>();
 
     // Helper function to calculate the Kth access time or default to a large value

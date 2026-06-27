@@ -1,12 +1,12 @@
 //
 // Created by Riju Mukherjee on 01-03-2025.
 //
+#include <vector>
 #include "../headers/Page.h"
-#include "../headers/PageDirectory.h"
-#include <iostream>
+
 namespace StorageEngine
 {
-    void Page::insertIntoPage(const std::vector<char>* new_data, const uint16_t new_data_len)
+    void Page::insertIntoPage(std::vector<char>* new_data, const uint16_t new_data_len, ROW_ID& pg_slot)
     {
         if (new_data == nullptr || new_data_len == 0)
         {
@@ -21,7 +21,7 @@ namespace StorageEngine
         if (header.free_space_offset - new_data_len < header.currSlotIdx)
         {
             logger->logCritical({"Page is full...PageDirectory should handle this condition"});
-            throw std::runtime_error("Page is full");
+            return;
         }
 
         Slot new_slot = {};
@@ -31,31 +31,26 @@ namespace StorageEngine
         new_slot.length = static_cast<uint16_t>(new_data_len);
         //always keep newer items in the front so that you don't have to reverse the slot later
         slots.push_front(new_slot);
-
         //Copy the data into the page_data array
         int c = 0;
-        // std::cout << "Row bytes write: ";
         for (int i = start_index; i < end_index; i++)
         {
             page_data[i] = new_data->at(c);
-            //printf("%02X ", static_cast<unsigned char>(page_data[i]));
             c++;
         }
-        // std::cout << std::endl;
         header.num_slots ++;
         header.free_space_offset = start_index;
         header.currSlotIdx += sizeof(Slot);
+        pg_slot.slot_id = header.num_slots;
     }
 
-    void Page::updateIntoPage(const uint16_t slot_idx, std::vector<char>* new_data, const uint16_t new_data_len)
+    void Page::updateIntoPage(const uint16_t slot_idx, std::vector<char>* new_data, const uint16_t new_data_len, bool& newPageInsert)
     {
-        if (new_data == nullptr || new_data_len == 0)
-        {
+        if (new_data == nullptr || new_data_len == 0){
             logger->logCritical({"Weird Can't Update data is null"});
             return;
         }
-        if(new_data_len > data_container_size)
-        {
+        if(new_data_len > data_container_size){
             logger->logCritical({"Data is too big to fit in a single page"});
             return;
         }
@@ -65,25 +60,21 @@ namespace StorageEngine
         const uint16_t length = slot_it->length;
         const uint16_t start_index = slot_it->offset;
         uint16_t end_index = 0;
-        if (new_data_len == length)
-        {
+        if (new_data_len == length){
             end_index = slot_it->offset + new_data_len;
         }
         // this will create fragmentation, but it's better than wasting a lot of space
-        else if (new_data_len < length)
-        {
+        else if (new_data_len < length){
             end_index = start_index + new_data_len;
             slot_it->length = new_data_len;
         }
-        else
-        {
+        else{
             slot_it->isSlotValid = false;
-            insertIntoPage(new_data, new_data_len);
+            newPageInsert = true;
             return;
         }
         //copy the data to update
-        for (int i = start_index; i < end_index; i++)
-        {
+        for (int i = start_index; i < end_index; i++){
             page_data[i] = new_data->at(i);
         }
     }
@@ -92,7 +83,12 @@ namespace StorageEngine
     {
         auto slot_it = slots.begin();
         std::advance(slot_it, slot_idx);
-        slot_it->isSlotValid = false;
+        if(slot_it->isSlotValid)
+        {
+            slot_it->isSlotValid = false;
+            return;
+        }
+        logger->logCritical({"Weird Page Already Deleted"});
     }
 
     std::unique_ptr<char[]> Page::getRowFromPage(const uint16_t slot_idx)
@@ -102,6 +98,13 @@ namespace StorageEngine
         std::unique_ptr<char[]> data = std::make_unique<char[]>(slot_it->length);
         std::memcpy(data.get(), (page_data+slot_it->offset), slot_it->length);
         return data;
+    }
+
+    uint16_t Page::getRowLength(const uint16_t slot_idx) const
+    {
+        auto slot_it = slots.begin();
+        std::advance(slot_it, slot_idx);
+        return slot_it->length;
     }
 
     std::unique_ptr<std::vector<std::unique_ptr<char[]>>> Page::getRowsFromPage(const std::vector<uint16_t>& slot_idxs) {

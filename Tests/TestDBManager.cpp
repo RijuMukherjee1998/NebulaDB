@@ -18,9 +18,9 @@ protected:
    std::string tbl_name = "test";
 
    Schema testSchema = Schema(tbl_name, {
-       {"id", DataType::INT, true, false},
-       {"name", DataType::STRING, false, false},
-       {"age", DataType::INT, false, false}
+       Column{1,    "id", DataType::INT, true, false, false},
+       Column{2, "name", DataType::STRING, false, false, false},
+       Column{3, "age", DataType::INT, false, false, false}
    });
 
    void SetUp() override {
@@ -51,9 +51,9 @@ TEST(DBMANAGER_FUNC, SELECT_DB)
 TEST(DBMANAGER_FUNC, CREATE_TABLE)
 {
    Schema testSchema(tbl_name, {
-            {"id", DataType::INT, true, false},
-            {"name", DataType::STRING, false, false},
-            {"age", DataType::INT, false, false},
+            Column{1,"id", DataType::INT, true, false, false},
+            Column{2,"name", DataType::STRING, false, false, false},
+            Column{3,"age", DataType::INT, false, false, false},
         });
    EXPECT_NO_THROW(testDBManager.createTable(&tbl_name, &testSchema));
 }
@@ -75,9 +75,9 @@ int id = 1;
 std::string name = "test1";
 int age = 18;
 Schema testSchema(tbl_name, {
-        {"id", DataType::INT, true, false},
-        {"name", DataType::STRING, false, false},
-        {"age", DataType::INT, false, false},
+        Column{1,"id", DataType::INT, true, false, false},
+        Column{2,"name", DataType::STRING, false, false, false},
+        Column{3,"age", DataType::INT, false, false, false},
     });
 TEST(TABLE_FUNC, INSERT_INTO_DB)
 {
