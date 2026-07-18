@@ -38,7 +38,8 @@ json Schema::toJson() const
     j["table_name"] = tableName;
     for (const auto& column : columns)
     {
-        j["columns"].push_back(column.toJson());
+        auto colJson = column.toJson();
+        j["columns"].push_back(colJson);
     }
     return j;
 }

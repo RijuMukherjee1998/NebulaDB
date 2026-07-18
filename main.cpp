@@ -12,6 +12,14 @@
 #include "headers/InternalQuery.h"
 #include "headers/ThreadPool.h"
 
+unsigned int random_number(uint32_t min, uint32_t max ) {
+    std::random_device rd;              // Seed source
+    std::mt19937 gen(rd());             // Mersenne Twister engine
+
+    std::uniform_int_distribution<unsigned int> dist(min, max);
+
+    return dist(gen);
+}
 std::string random_string(const size_t min_len, const size_t max_len, bool nums = false) {
     static const std::string chars =
         "abcdefghijklmnopqrstuvwxyz"
@@ -250,6 +258,7 @@ int main()
     dbmanager.showAllDB();
     const std::string db_name = "AadharDB";
     const std::string tbl_name = "Aadhar";
+    dbmanager.deleteDB(&db_name);
     dbmanager.createDB(&db_name);
     dbmanager.showAllDB();
     dbmanager.selectDB(&db_name);
@@ -262,22 +271,28 @@ int main()
     dbmanager.createTable(&tbl_name, &mySchema);
     dbmanager.showAllTables();
 
-    /* This inserts a single row into the Aadhar table */
-    auto insert_query = std::make_unique<InternalQuery::InsertQuery>();
-    insert_query->InternalQuery::Query::qtype = InternalQuery::QueryType::INSERT_QUERY;
-    insert_query->values = {
-        1,
-        std::string("Riju"),
-        25,
-        std::string("354268570149")
-    };
+    int num_entries = 50000 ;
+    while (num_entries > 0) {
+        int sno = random_number(1,40000000);
+        int age = random_number(1,105);
+        /* This inserts a single row into the Aadhar table */
+        auto insert_query = std::make_unique<InternalQuery::InsertQuery>();
+        insert_query->InternalQuery::Query::qtype = InternalQuery::QueryType::INSERT_QUERY;
+        insert_query->values = {
+            sno,
+            random_string(5, 10, false),
+            age,
+            random_string(12,12,true)
+        };
 
-    InternalQuery::TableQuery tbl_query;
-    tbl_query.table_name = tbl_name;
-    tbl_query.type = InternalQuery::TableQuery::TableQueryType::INSERT;
-    tbl_query.query = std::move(insert_query);
+        InternalQuery::TableQuery tbl_query;
+        tbl_query.table_name = tbl_name;
+        tbl_query.type = InternalQuery::TableQuery::TableQueryType::INSERT;
+        tbl_query.query = std::move(insert_query);
 
-    dbmanager.executeQueryOnTable(tbl_query);
+        dbmanager.executeQueryOnTable(tbl_query);
+        num_entries --;
+    }
 
     /* This is the index column query for age*/
     auto index_col_query = std::make_unique<InternalQuery::IndexQuery>();
@@ -302,10 +317,15 @@ int main()
     dbmanager.executeQueryOnTable(index_tbl_query_1);
 
 
-    /* This selects all rows from the Aadhar table */
+    /* This selects all rows from the Aadhar table and age */
+    InternalQuery::OrQuery or_query;
+    std::vector<InternalQuery::Condition> conditions;
+    conditions.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 25, {0,0}));
+    or_query.and_groups.push_back(InternalQuery::AndQuery(conditions));
     auto select_all_query = std::make_unique<InternalQuery::SelectQuery>();
     select_all_query->InternalQuery::Query::qtype = InternalQuery::QueryType::SELECT_QUERY;
-    select_all_query->projection = {2, 4};
+    select_all_query->predicate = std::move(or_query);
+    select_all_query->projection = {3, 4};
 
     InternalQuery::TableQuery select_tbl_query;
     select_tbl_query.table_name = tbl_name;
@@ -314,8 +334,91 @@ int main()
 
     dbmanager.executeQueryOnTable(select_tbl_query);
 
-    
+    auto update_query = std::make_unique<InternalQuery::UpdateQuery>();
+    update_query->InternalQuery::Query::qtype = InternalQuery::QueryType::UPDATE_QUERY;
+    InternalQuery::OrQuery or_query_1;
+    std::vector<InternalQuery::Condition> conditions_1;
+    conditions_1.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 25, {0,0}));
+    or_query_1.and_groups.push_back(InternalQuery::AndQuery(conditions_1));
+    update_query->predicate = std::move(or_query_1);
+    update_query->updates= {{3,28}};
+    InternalQuery::TableQuery update_tbl_query;
+    update_tbl_query.table_name = tbl_name;
+    update_tbl_query.type = InternalQuery::TableQuery::TableQueryType::UPDATE;
+    update_tbl_query.query = std::move(update_query);
+
+    dbmanager.executeQueryOnTable(update_tbl_query);
+
+    /* Now try to find the same age 25 from the table u should find no selected rows */
+    InternalQuery::OrQuery or_query_2;
+    std::vector<InternalQuery::Condition> conditions_2;
+    conditions_2.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 25, {0,0}));
+    or_query_2.and_groups.push_back(InternalQuery::AndQuery(conditions_2));
+    auto select_all_query_1 = std::make_unique<InternalQuery::SelectQuery>();
+    select_all_query_1->InternalQuery::Query::qtype = InternalQuery::QueryType::SELECT_QUERY;
+    select_all_query_1->predicate = std::move(or_query_2);
+    select_all_query_1->projection = {3, 4};
+
+    InternalQuery::TableQuery select_tbl_query_1;
+    select_tbl_query_1.table_name = tbl_name;
+    select_tbl_query_1.type = InternalQuery::TableQuery::TableQueryType::SELECT;
+    select_tbl_query_1.query = std::move(select_all_query_1);
+
+    dbmanager.executeQueryOnTable(select_tbl_query_1);
+
+    /*Now find the 28 age selected query that was updated*/
+    InternalQuery::OrQuery or_query_3;
+    std::vector<InternalQuery::Condition> conditions_3;
+    conditions_3.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 28, {0,0}));
+    or_query_3.and_groups.push_back(InternalQuery::AndQuery(conditions_3));
+    auto select_all_query_2 = std::make_unique<InternalQuery::SelectQuery>();
+    select_all_query_2->InternalQuery::Query::qtype = InternalQuery::QueryType::SELECT_QUERY;
+    select_all_query_2->predicate = std::move(or_query_3);
+    select_all_query_2->projection = {3, 4};
+
+    InternalQuery::TableQuery select_tbl_query_2;
+    select_tbl_query_2.table_name = tbl_name;
+    select_tbl_query_2.type = InternalQuery::TableQuery::TableQueryType::SELECT;
+    select_tbl_query_2.query = std::move(select_all_query_2);
+
+    dbmanager.executeQueryOnTable(select_tbl_query_2);
+
+    /*Now try to delete all rows with age 28*/
+    InternalQuery::OrQuery or_query_4;
+    std::vector<InternalQuery::Condition> conditions_4;
+    conditions_4.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 28, {0,0}));
+    or_query_4.and_groups.push_back(InternalQuery::AndQuery(conditions_4));
+    auto delete_query = std::make_unique<InternalQuery::DeleteQuery>();
+    delete_query->InternalQuery::Query::qtype = InternalQuery::QueryType::DELETE_QUERY;
+    delete_query->predicate = std::move(or_query_4);
+
+    InternalQuery::TableQuery delete_tbl_query;
+    delete_tbl_query.table_name = tbl_name;
+    delete_tbl_query.type = InternalQuery::TableQuery::TableQueryType::DELETE;
+    delete_tbl_query.query = std::move(delete_query);
+
+    dbmanager.executeQueryOnTable(delete_tbl_query);
 
 
+    /*
+     * Now find the 28 age selected query that was deleted
+     * The test should find none as all of them were deleted.
+     */
+
+    InternalQuery::OrQuery or_query_5;
+    std::vector<InternalQuery::Condition> conditions_5;
+    conditions_5.push_back(InternalQuery::Condition(3, InternalQuery::EQUAL, InternalQuery::Condition::Filtype::SINGLE_VALUE, 28, {0,0}));
+    or_query_5.and_groups.push_back(InternalQuery::AndQuery(conditions_5));
+    auto select_all_query_3 = std::make_unique<InternalQuery::SelectQuery>();
+    select_all_query_3->InternalQuery::Query::qtype = InternalQuery::QueryType::SELECT_QUERY;
+    select_all_query_3->predicate = std::move(or_query_5);
+    select_all_query_3->projection = {3, 4};
+
+    InternalQuery::TableQuery select_tbl_query_3;
+    select_tbl_query_3.table_name = tbl_name;
+    select_tbl_query_3.type = InternalQuery::TableQuery::TableQueryType::SELECT;
+    select_tbl_query_3.query = std::move(select_all_query_3);
+
+    dbmanager.executeQueryOnTable(select_tbl_query_3);
     return 0;
 }

@@ -1,6 +1,7 @@
 //
 // Created by Riju Mukherjee on 1/18/26.
 //
+#pragma once
 
 #include <fstream>
 #include <memory>
@@ -55,41 +56,22 @@ void StorageEngine::Indexer<Key, Value>::updateOnInsert(Column& updated_col, std
 }
 
 template<typename Key, typename Value>
-size_t StorageEngine::Indexer<Key, Value>::updateOnModify(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* modifiedRows)
+size_t StorageEngine::Indexer<Key, Value>::updateOnModify(std::vector<std::pair<Key,Value>>* modifiedRows)
 {
-    return updateOnDelete(startKey, endKey, modifiedRows);
+    return updateOnDelete(modifiedRows);
 }
 
 template<typename Key, typename Value>
-size_t StorageEngine::Indexer<Key, Value>::updateOnDelete(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* deletedRows)
+size_t StorageEngine::Indexer<Key, Value>::updateOnDelete(std::vector<std::pair<Key,Value>>* deletedRows)
 {
     if (deletedRows == nullptr || deletedRows->empty()) {
         return 0;
     }
-
-    auto isTargetRow = [&](const Value& value) {
-        for (const auto& row : *deletedRows) {
-            if (value.first == row.pg_id && value.second == row.slot_id) {
-                return true;
-            }
-        }
-        return false;
-    };
-
     size_t changedRows = 0;
-    std::vector<std::pair<Key, Value>> deletedEntries = bp_tree->deleteRange(startKey, endKey);
-    for (const auto& [key, value] : deletedEntries) {
-        if (isTargetRow(value)) {
-            changedRows++;
-            continue;
-        }
-        bp_tree->insert(key, value);
-    }
+    bp_tree->deleteRangeEntries(deletedRows, changedRows);
 
-    if (changedRows > 0) {
-        changeCounter += changedRows;
-        saveIndex(false);
-    }
+    changeCounter += changedRows;
+    saveIndex(false);
     return changedRows;
 }
 

@@ -30,7 +30,7 @@ namespace StorageEngine {
             StorageEngine::PageCache* pg_cache = nullptr;
             IndexTableType * idx_tbl = nullptr;
 
-            size_t minBytesForColumns(const std::vector<Column>& cols, const size_t start_idx, const size_t string_header_size) const {
+            static inline size_t minBytesForColumns(const std::vector<Column>& cols, const size_t start_idx, const size_t string_header_size) {
                 size_t total = 0;
                 for (size_t i = start_idx; i < cols.size(); i++) {
                     switch(cols[i].col_type)
@@ -67,13 +67,13 @@ namespace StorageEngine {
                 return total;
             }
 
-            void ensureCanRead(char* buffer_ptr, char* row_end, const size_t data_size) const {
+            static inline void ensureCanRead(char* buffer_ptr, char* row_end, const size_t data_size) {
                 if (buffer_ptr > row_end || static_cast<size_t>(row_end - buffer_ptr) < data_size) {
                     throw std::runtime_error("Row data is shorter than schema expects");
                 }
             }
 
-            void bufferToValue(char* buffer_ptr, const uint16_t row_size, std::vector<Column>& cols) {
+            static inline void bufferToValue(char* buffer_ptr, const uint16_t row_size, std::vector<Column>& cols) {
                 char* row_end = buffer_ptr + row_size;
                 for (size_t col_idx = 0; col_idx < cols.size(); col_idx++){
                     Column& col = cols[col_idx];
@@ -178,7 +178,7 @@ namespace StorageEngine {
                     }
                 }
             }
-            void addTotalBytes(const Column& column, uint16_t& total_bytes) const {
+            static inline void addTotalBytes(const Column& column, uint16_t& total_bytes) {
                 if (column.col_type == DataType::BOOLEAN)
                     total_bytes += sizeof(bool);
                 else if (column.col_type == DataType::CHAR)
@@ -442,19 +442,37 @@ namespace StorageEngine {
                 std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
                 const uint16_t row_length = page->getRowLength(rid.slot_id);
                 std::unique_ptr<char[]> raw_data = page->getRowFromPage(rid.slot_id);
-                pg_cache->unPinPage(rid.pg_id);
-
                 std::vector<Column> cols = tSchema->getColumns();
+                if (raw_data == nullptr) return cols;
+                pg_cache->unPinPage(rid.pg_id);
                 bufferToValue(raw_data.get(), row_length, cols);
                 return cols;
             }
 
+            void removeIndexedRows(std::vector<std::vector<Column>>& rows, std::vector<ROW_ID>& rids,
+                        std::vector<std::pair<uint16_t, StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*>>& indexes) {
+                if (idx_tbl == nullptr || idx_tbl->empty()) {
+                    return;
+                }
+
+                for (unsigned int idx=0; idx < indexes.size(); idx++) {
+                    std::vector<std::pair<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> del_entries;
+                    for (uint64_t i=0; i<rows.size(); i++ ) {
+                        auto rid = rids[i];
+                        if (!rows[i][indexes[idx].first-1].is_indexed) continue;
+                        const variant_data_t key = rows[i][indexes[idx].first-1].col_value;
+                        del_entries.push_back({key,{rid.pg_id,rid.slot_id}});
+                    }
+                    indexes[idx].second->updateOnDelete(&del_entries);
+                }
+            }
             void removeIndexedValuesForRow(std::vector<Column>& cols, const ROW_ID& rid) {
                 if (idx_tbl == nullptr || idx_tbl->empty()) {
                     return;
                 }
 
-                std::vector<ROW_ID> rows{rid};
+                std::vector<std::pair<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> del_entries;
+
                 for (auto& col : cols) {
                     if (!col.is_indexed) {
                         continue;
@@ -464,7 +482,8 @@ namespace StorageEngine {
                         continue;
                     }
                     const variant_data_t key = col.col_value;
-                    index->updateOnDelete(key, key, &rows);
+                    del_entries.push_back({key,{rid.pg_id,rid.slot_id}});
+                    index->updateOnDelete(&del_entries);
                 }
             }
 
@@ -473,7 +492,7 @@ namespace StorageEngine {
                     return;
                 }
 
-                std::vector<ROW_ID> rows{rid};
+                std::vector<std::pair<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>> del_entries;
                 for (auto& col : cols) {
                     if (!col.is_indexed || updates.find(col.col_id) == updates.end()) {
                         continue;
@@ -483,7 +502,8 @@ namespace StorageEngine {
                         continue;
                     }
                     const variant_data_t key = col.col_value;
-                    index->updateOnModify(key, key, &rows);
+                    del_entries.push_back({key, {rid.pg_id,rid.slot_id}});
+                    index->updateOnModify(&del_entries);
                 }
             }
 

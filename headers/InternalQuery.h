@@ -31,11 +31,11 @@ enum Conditions {
 };
 
 class Condition {
-    enum Filtype{
-        SINGLE_VALUE,
-        RANGE_VALUE
-    };
     public:
+        enum Filtype{
+            SINGLE_VALUE,
+            RANGE_VALUE
+        };
         uint16_t col_idx;
         Conditions op;
         Filtype fil_type;

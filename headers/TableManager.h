@@ -25,7 +25,7 @@ namespace Manager
 {
     class TableManager {
     private:
-        Schema* tSchema;
+        std::unique_ptr<Schema> tSchema;
         Utils::Logger* logger;
         std::filesystem::path db_path;
         std::filesystem::path table_path;
@@ -37,6 +37,7 @@ namespace Manager
 
     public:
         TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, Schema* schema);
+        ~TableManager(){}
         void ExecuteQuery(InternalQuery::TableQuery& tbl_query);
         void flushAll() const;
 

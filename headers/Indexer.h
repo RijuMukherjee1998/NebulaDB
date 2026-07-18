@@ -25,8 +25,8 @@ namespace StorageEngine
         void saveIndex(bool forcedSave);
         void createIndex(std::unique_ptr<std::vector<std::pair<Column,ROW_ID>>> col_datas);
         void updateOnInsert(Column& col, std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>& pg_slot);
-        size_t updateOnModify(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* modifiedRows);
-        size_t updateOnDelete(const Key& startKey, const Key& endKey, std::vector<ROW_ID>* deletedRows);
+        size_t updateOnModify(std::vector<std::pair<Key,Value>>* modifiedRows);
+        size_t updateOnDelete(std::vector<std::pair<Key,Value>>* deletedRows);
         void searchIndexRange(Key& startKey, Key& endKey, std::vector<ROW_ID>* rows);
         std::string getIndxColName() {
             return index_name;

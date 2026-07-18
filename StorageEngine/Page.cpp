@@ -74,8 +74,9 @@ namespace StorageEngine
             return;
         }
         //copy the data to update
+        int c = 0;
         for (int i = start_index; i < end_index; i++){
-            page_data[i] = new_data->at(i);
+            page_data[i] = new_data->at(c++);
         }
     }
 
@@ -95,6 +96,7 @@ namespace StorageEngine
     {
         auto slot_it = slots.begin();
         std::advance(slot_it, slot_idx);
+        if (!slot_it->isSlotValid) return nullptr;
         std::unique_ptr<char[]> data = std::make_unique<char[]>(slot_it->length);
         std::memcpy(data.get(), (page_data+slot_it->offset), slot_it->length);
         return data;

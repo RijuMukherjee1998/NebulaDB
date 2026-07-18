@@ -4,6 +4,7 @@
 
 
 #include <filesystem>
+#include <memory>
 #include <vector>
 #include "../headers/DBManager.h"
 
@@ -112,6 +113,7 @@ void Manager::DBManager::selectDB(const std::string* db_name)
 
 void Manager::DBManager::shutdownDB()
 {
+    logger->logInfo({"Shutting down DB"});
     for(auto it = table_manager_table.begin(); it != table_manager_table.end(); ++it)
     {
         it->second->flushAll();
@@ -164,8 +166,8 @@ Manager::TableManager* Manager::DBManager::cacheTableManager(const std::string* 
     }
     else
     {
-        Schema* sch = Schema::loadFromFileSchema(currSelectedTablePath/(tbl_name_fs.string()+".json"));
-        curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, sch);
+        std::unique_ptr<Schema> sch(Schema::loadFromFileSchema(currSelectedTablePath/(tbl_name_fs.string()+".json")));
+        curr_table_manager = new TableManager(currSelectedDBPath,currSelectedTablePath, sch.get());
         table_manager_table[*table_name] = curr_table_manager;
     }
     return curr_table_manager;

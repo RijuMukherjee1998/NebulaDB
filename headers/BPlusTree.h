@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <utility>
 
 template<typename Key , typename Value, int Order>
 class BPlusTree {
@@ -52,14 +53,16 @@ public:
     std::unique_ptr<std::vector<std::pair<Key,Value>>> getAllIndices()
     {
         std::shared_ptr<Node> curr = root;
-        while (curr->type == NodeType::INTERNAL) {
+        std::unique_ptr<std::vector<std::pair<Key,Value>>> all_indices = std::make_unique<std::vector<std::pair<Key, Value>>>();
+        if (curr == nullptr)
+            return all_indices;
+        while (curr != nullptr && curr->type == NodeType::INTERNAL) {
             auto inode = std::static_pointer_cast<InternalNode>(curr);
             int idx = 0;
             assert(inode->getKeyCount() > 0);
             curr = inode->children[idx];
         }
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
-        std::unique_ptr<std::vector<std::pair<Key,Value>>> all_indices = std::make_unique<std::vector<std::pair<Key, Value>>>();
         while (leaf != nullptr) {
             for (size_t i=0; i<leaf->getKeyCount(); i++) {
                 all_indices->emplace_back(std::pair<Key,Value>(leaf->keys[i],leaf->values[i]));
@@ -249,6 +252,56 @@ public:
         }
 
         return deletedValues;
+    }
+    /* Deletes a single entry */
+    void deleteEntry(const std::pair<Key, Value>& entry, bool& found)
+    {
+        found = false;
+        if (!root) return;
+
+        const Key& key = entry.first;
+        const Value& val = entry.second;
+
+        std::shared_ptr<Node> curr = root;
+        while (curr->type == NodeType::INTERNAL) {
+            auto inode = std::static_pointer_cast<InternalNode>(curr);
+            int idx = std::lower_bound(inode->keys.begin(), inode->keys.end(), key) - inode->keys.begin();
+            curr = inode->children[idx];
+        }
+
+        auto leaf = std::static_pointer_cast<LeafNode>(curr);
+
+        while (leaf->prev && !leaf->prev->keys.empty() && leaf->prev->keys.back() >= key) {
+            leaf = leaf->prev;
+        }
+
+        while (leaf) {
+            for (size_t pos = 0; pos < leaf->keys.size(); ++pos) {
+                if (leaf->keys[pos] > key) return;
+
+                if (leaf->keys[pos] == key && leaf->values[pos] == val) {
+                    leaf->keys.erase(leaf->keys.begin() + pos);
+                    leaf->values.erase(leaf->values.begin() + pos);
+                    found = true;
+
+                    if (leaf != root && leaf->getKeyCount() < std::ceil(Order / 2)) {
+                        borrow_or_merge(leaf);
+                    }
+                    return;
+                }
+            }
+
+            leaf = leaf->next;
+        }
+    }
+    /* This exactly deletes what is needed both key and values match */
+    void deleteRangeEntries(std::vector<std::pair<Key ,Value>>* del_entries, size_t& changedRows) {
+        for (auto& entry : *del_entries) {
+            bool found = false;
+            deleteEntry(entry,found);
+            //assert(found);
+            changedRows++;
+        }
     }
     void print() const
     {

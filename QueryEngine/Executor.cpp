@@ -109,6 +109,7 @@ QueryEngine::ExecResults QueryEngine::IndexScanNode::execute(EC& ctx)
     Filter filter;
     filter.col_filter = {this->exec_cond};
     ExecResults results = page_ops->IndexTableScan(filter);
+    delete page_ops;
     return results;
 }
 
@@ -118,6 +119,7 @@ QueryEngine::ExecResults QueryEngine::SeqScanNode::execute(EC& ctx)
     Filter filter;
     filter.col_filter = {this->exec_cond};
     ExecResults results = page_ops->FullTableScan(filter);
+    delete page_ops;
     return results;
 }
 

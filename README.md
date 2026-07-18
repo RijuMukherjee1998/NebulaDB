@@ -30,14 +30,33 @@ NebulaDB is a database system built from scratch in C++23, focused on understand
     Utilities
     ThreadPool
     Logging (spdlog)
+    --help
+    BUILD_TYPE
+    CXX/CC
+    JOBS
+    VCPKG_COMMIT
+    stale-cache self-healing
+    RUN_TESTS=ON default
 
-⚙️ Setup & Run Guide  ✅ Recommended: Dev Container Requirements:
+## Setup & Run Guide  
 
-    Docker Desktop
-  
-    Visual Studio Code
-  
-    Dev Containers extension
+### Option A — Native Build
+
+  Contributors need *zero* IDE/Docker dependency. Dev Container is now the reproducibility option, not a hard requirement.
+
+### Requirements:
+
+  | Requirement | Version |
+  |-------------|---------|
+  | GCC        | 13+     |
+  | Clang      | 17+     |
+  | vcpkg prerequisites | `git curl zip unzip tar pkg-config` |
+
+### Install Requirements (Debian/Ubuntu)
+
+```bash
+sudo apt install git curl zip unzip tar pkg-config
+```
 
 🔧 Setup
 
@@ -82,10 +101,11 @@ NebulaDB is a database system built from scratch in C++23, focused on understand
 
   🛠️ Manual Build (Optional)
 
-    - cmake -B build -S . -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -B build -S . -G Ninja 
 
     - cmake --build build
+
+    - ctest
 
     - ./build/NebulaDB
 
@@ -95,6 +115,18 @@ NebulaDB is a database system built from scratch in C++23, focused on understand
   - Avoid using sudo during build/run
   - run.sh is the recommended workflow
 
+## Environment Variable Reference
+
+  | Variable     | Description |
+  |--------------|-------------|
+  | ENABLE_ASAN  | Enable AddressSanitizer |
+  | RUN_TESTS    | Execute tests on build (default: ON) |
+  | BUILD_TYPE   | Set the build type |
+  | CXX          | C++ compiler |
+  | CC           | C compiler |
+  | JOBS         | Number of parallel jobs |
+  | VCPKG_COMMIT | Specific commit for vcpkg |
+    
 # 📜 License
 
   NebulaDB is licensed under the **GNU General Public License v2.0 (GPL-2.0)**.
@@ -104,3 +136,7 @@ NebulaDB is a database system built from scratch in C++23, focused on understand
   - Any derivative work must also be open-sourced under GPL
 
   See the [LICENSE](LICENSE) file for details.
+
+## Troubleshooting
+
+  - If you encounter any error messages while running the script, refer to the documentation above for guidance on resolving them.

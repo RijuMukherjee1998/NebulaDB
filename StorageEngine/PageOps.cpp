@@ -82,6 +82,7 @@ void StorageEngine::PageOps::UpdateRows(QueryEngine::ExecResults& result, std::u
                 std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
                 const uint16_t row_length = page->getRowLength(rid.slot_id);
                 auto raw_data = page->getRowFromPage(rid.slot_id);
+                if (raw_data == nullptr) continue;
                 std::vector<Column> old_cols = tSchema->getColumns();
                 bufferToValue(raw_data.get(), row_length, old_cols);
 
@@ -132,10 +133,25 @@ void StorageEngine::PageOps::DeleteRows(QueryEngine::ExecResults& result)
         using T = std::decay_t<decltype(*ptr)>; // vector<ROW_ID> or vector<ROW>
 
         if constexpr (std::is_same_v<T, std::vector<ROW_ID>>) {
+            std::vector<std::vector<Column>> rows;
+            std::vector<ROW_ID> rids;
+            std::vector<Column> all_cols = tSchema->getColumns();
+            std::vector<std::pair<uint16_t, StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*>> indexes;
+            for (auto col : all_cols) {
+                if (!col.is_indexed) continue;
+                auto index = getIndexFromIndexTable(col.col_id);
+                if (index == nullptr) continue;
+                std::pair<uint16_t, StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>*> col_idx
+                                                                = {col.col_id,index};
+                indexes.emplace_back(col_idx);
+            }
             for (const auto& rid : *ptr) {
                 std::vector<Column> cols = getRowColumns(rid);
-                removeIndexedValuesForRow(cols, rid);
-
+                rids.emplace_back(rid);
+                rows.emplace_back(cols);
+            }
+            removeIndexedRows(rows,rids,indexes);
+            for (const auto& rid : *ptr) {
                 std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
                 page->deleteFromPage(rid.slot_id);
                 pg_cache->markPageDirty(rid.pg_id);

@@ -12,7 +12,7 @@
 
 
 Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBPath, const std::filesystem::path& currSelectedTablePath, Schema* schema):
-    tSchema(schema)
+    tSchema(std::make_unique<Schema>(*schema))
 {
     this->db_path = currSelectedDBPath;
     this->table_path = currSelectedTablePath;
@@ -22,6 +22,7 @@ Manager::TableManager::TableManager(const std::filesystem::path& currSelectedDBP
     pageDirectory->loadPageDirectory();
     populateIndexTable();
 }
+
 
 void Manager::TableManager::ExecuteQuery(InternalQuery::TableQuery& tbl_query)
 {
@@ -34,22 +35,27 @@ void Manager::TableManager::ExecuteQuery(InternalQuery::TableQuery& tbl_query)
     if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::INSERT)
     {
         insertIntoTable(_query);
+        logger->logInfo({"Insert Done"});
     }
     else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::INDEX_COL)
     {
         createIndexOnCol(_query);
+        logger->logInfo({"Index Creation Done"});
     }
     else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::UPDATE)
     {
         updateRowsInTable(_query);
+        logger->logInfo({"Update Done"});
     }
     else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::DELETE)
     {
         deleteRowsFromTable(_query);
+        logger->logInfo({"Delete Done"});
     }
     else if(tbl_query.type == InternalQuery::TableQuery::TableQueryType::SELECT)
     {
         selectRowsFromTable(_query);
+        logger->logInfo({"Select Done"});
     }
 }
 
@@ -62,7 +68,7 @@ void Manager::TableManager::flushAll() const
 
 ROW_ID Manager::TableManager::insertIntoTable(InternalQuery::Query* insertQuery)
 {
-    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::Planner planner(db_path, table_path, tSchema.get(), pageDirectory, index_table);
     QueryEngine::PlanType plan = planner.GeneratePlan(insertQuery);
     planner.ExecutePlan(plan);
     return {};
@@ -70,7 +76,7 @@ ROW_ID Manager::TableManager::insertIntoTable(InternalQuery::Query* insertQuery)
 
 std::vector<ROW_ID> Manager::TableManager::updateRowsInTable(InternalQuery::Query* updateQuery)
 {
-    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::Planner planner(db_path, table_path, tSchema.get(), pageDirectory, index_table);
     QueryEngine::PlanType plan = planner.GeneratePlan(updateQuery);
     planner.ExecutePlan(plan);
     return {};
@@ -78,7 +84,7 @@ std::vector<ROW_ID> Manager::TableManager::updateRowsInTable(InternalQuery::Quer
 
 std::vector<ROW_ID> Manager::TableManager::deleteRowsFromTable(InternalQuery::Query* deleteQuery)
 {
-    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::Planner planner(db_path, table_path, tSchema.get(), pageDirectory, index_table);
     QueryEngine::PlanType plan = planner.GeneratePlan(deleteQuery);
     planner.ExecutePlan(plan);
     return {};
@@ -86,7 +92,7 @@ std::vector<ROW_ID> Manager::TableManager::deleteRowsFromTable(InternalQuery::Qu
 
 std::vector<ROW_ID> Manager::TableManager::selectRowsFromTable(InternalQuery::Query* selectQuery)
 {
-    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::Planner planner(db_path, table_path, tSchema.get(), pageDirectory, index_table);
     QueryEngine::PlanType plan = planner.GeneratePlan(selectQuery);
     QueryEngine::ExecResults results = planner.ExecutePlan(plan);
     printTableData(results);
@@ -95,7 +101,7 @@ std::vector<ROW_ID> Manager::TableManager::selectRowsFromTable(InternalQuery::Qu
 
 bool Manager::TableManager::createIndexOnCol(InternalQuery::Query* indexQuery)
 {
-    QueryEngine::Planner planner(db_path, table_path, tSchema, pageDirectory, index_table);
+    QueryEngine::Planner planner(db_path, table_path, tSchema.get(), pageDirectory, index_table);
     QueryEngine::PlanType plan = planner.GeneratePlan(indexQuery);
     planner.ExecutePlan(plan);
     return true;
