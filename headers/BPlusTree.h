@@ -300,7 +300,8 @@ public:
             bool found = false;
             deleteEntry(entry,found);
             //assert(found);
-            changedRows++;
+            if (found)
+                changedRows++;
         }
     }
     void print() const

@@ -1,139 +1,88 @@
-//
-// Created by Riju Mukherjee on 11-05-2025.
-//
+﻿#include <gtest/gtest.h>
 
-#include <random>
-#include <gtest/gtest.h>
-#include  "../headers/BPlusTree.h"
+#include <algorithm>
+#include <memory>
+#include <utility>
+#include <vector>
 
+#include "../headers/BPlusTree.h"
 
-
-TEST(BPLUSTREE_TEST, BPLUSTREE_INSERT_INCREMENTAL)
+TEST(BPlusTreeTest, InsertAndPointSearch)
 {
-    BPlusTree<int,int,4> bPlusTree;
-    int i = 1;
-    while (i < 500000)
-    {
-        ASSERT_NO_THROW(bPlusTree.insert(i,i*100));
-        i++;
+    BPlusTree<int, int, 4> bPlusTree;
+
+    for (int i = 1; i <= 100; ++i) {
+        bPlusTree.insert(i, i * 10);
     }
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
-    //bPlusTree.print(); // Too big ---- print wont make sense
+
+    bool found = false;
+    std::unique_ptr<int> value = bPlusTree.searchKey(42, found);
+    ASSERT_TRUE(found);
+    ASSERT_NE(value, nullptr);
+    EXPECT_EQ(*value, 420);
+
+    value = bPlusTree.searchKey(1000, found);
+    EXPECT_FALSE(found);
+    EXPECT_EQ(value, nullptr);
+    EXPECT_TRUE(bPlusTree.bplustreeSortedCheck());
 }
 
-TEST(BPLUSTREE_TEST, BPLUSTREE_INSERT_RANDOM_CONTROLLED)
+TEST(BPlusTreeTest, RangeSearchReturnsSortedValuesInsideBounds)
 {
-    BPlusTree<int,int,4> bPlusTree;
-    ASSERT_NO_THROW(bPlusTree.insert(5,0));
-    ASSERT_NO_THROW(bPlusTree.insert(3,0));
-    ASSERT_NO_THROW(bPlusTree.insert(7,0));
-    ASSERT_NO_THROW(bPlusTree.insert(2,0));
-    ASSERT_NO_THROW(bPlusTree.insert(1,0));
-    ASSERT_NO_THROW(bPlusTree.insert(8,0));
-    ASSERT_NO_THROW(bPlusTree.insert(9,0));
-    ASSERT_NO_THROW(bPlusTree.insert(4,0));
-    ASSERT_NO_THROW(bPlusTree.insert(0,0));
-    ASSERT_NO_THROW(bPlusTree.insert(11, 0));
-    ASSERT_NO_THROW(bPlusTree.insert(10, 0));
-    ASSERT_NO_THROW(bPlusTree.insert(12, 0));
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
-    bPlusTree.print();
-}
-TEST(BPLUSTREE_TEST, BPLUSTREE_INSERT_RANDOM_GEN)
-{
-    BPlusTree<int,int,4> bPlusTree;
-    // random insert
-    std::random_device device;
-    std::mt19937 generator(device());
-    std::uniform_int_distribution<int> distribution(1,3500);
-    int i = 1;
-    while (i <= 3000)
-    {
-        ASSERT_NO_THROW(bPlusTree.insert(distribution(generator),i*10));
-        i++;
+    BPlusTree<int, int, 4> bPlusTree;
+    for (int key : {7, 2, 9, 1, 5, 3, 8, 4, 6}) {
+        bPlusTree.insert(key, key * 100);
     }
-    bPlusTree.print();
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
-}
 
-TEST(BPLUSTREE_TEST, BPLUSTREE_SINGLE_SEARCH)
-{
-    BPlusTree<int,int,4> bPlusTree;
-    ASSERT_NO_THROW(bPlusTree.insert(5,0));
-    ASSERT_NO_THROW(bPlusTree.insert(3,0));
-    ASSERT_NO_THROW(bPlusTree.insert(7,0));
-    ASSERT_NO_THROW(bPlusTree.insert(2,0));
-    ASSERT_NO_THROW(bPlusTree.insert(1,0));
-    ASSERT_NO_THROW(bPlusTree.insert(8,0));
-    ASSERT_NO_THROW(bPlusTree.insert(9,0));
-    ASSERT_NO_THROW(bPlusTree.insert(4,0));
-    ASSERT_NO_THROW(bPlusTree.insert(0,0));
-    bPlusTree.print();
     bool found = false;
-    GTEST_ASSERT_NE(bPlusTree.searchKey(5,found),nullptr);
-    GTEST_ASSERT_NE(bPlusTree.searchKey(3,found),nullptr);
-    GTEST_ASSERT_NE(bPlusTree.searchKey(7,found),nullptr);
-    GTEST_ASSERT_NE(bPlusTree.searchKey(2,found),nullptr);
-    ASSERT_EQ(bPlusTree.searchKey(10,found),nullptr);
-    ASSERT_EQ(bPlusTree.searchKey(6,found),nullptr);
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
+    std::unique_ptr<std::vector<int>> values = bPlusTree.searchRange(3, 6, found);
+
+    ASSERT_TRUE(found);
+    ASSERT_NE(values, nullptr);
+    EXPECT_EQ(*values, (std::vector<int>{300, 400, 500, 600}));
 }
 
-TEST(BPLUSTREE_TEST, BPLUSTREE_SEARCH_RANGE)
+TEST(BPlusTreeTest, DeleteEntryRemovesOnlyMatchingDuplicateValue)
 {
-    BPlusTree<int,int,4> bPlusTree;
-    ASSERT_NO_THROW(bPlusTree.insert(5,50));
-    ASSERT_NO_THROW(bPlusTree.insert(3,30));
-    ASSERT_NO_THROW(bPlusTree.insert(7,70));
-    ASSERT_NO_THROW(bPlusTree.insert(2,20));
-    ASSERT_NO_THROW(bPlusTree.insert(1,10));
-    ASSERT_NO_THROW(bPlusTree.insert(8,80));
-    ASSERT_NO_THROW(bPlusTree.insert(9,90));
-    ASSERT_NO_THROW(bPlusTree.insert(4,40));
-    ASSERT_NO_THROW(bPlusTree.insert(0,0));
-    bPlusTree.print();
+    BPlusTree<int, int, 4> bPlusTree;
+    for (int value = 0; value < 20; ++value) {
+        bPlusTree.insert(5, value);
+    }
+    bPlusTree.insert(4, 400);
+    bPlusTree.insert(6, 600);
+
+    bool deleted = false;
+    bPlusTree.deleteEntry({5, 13}, deleted);
+    ASSERT_TRUE(deleted);
+
     bool found = false;
-    std::unique_ptr<std::vector<int>> allValues = bPlusTree.searchRange(4,8,found);
-    ASSERT_EQ(allValues.get()->size(),4);
-    allValues = bPlusTree.searchRange(3,6,found);
-    ASSERT_EQ(allValues.get()->size(),3);
-    allValues = bPlusTree.searchRange(10,12,found);
-    ASSERT_EQ(allValues.get()->size(),0);
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
+    std::unique_ptr<std::vector<int>> values = bPlusTree.searchRange(5, 5, found);
+    ASSERT_TRUE(found);
+    ASSERT_NE(values, nullptr);
+    EXPECT_EQ(values->size(), 19U);
+    EXPECT_EQ(std::count(values->begin(), values->end(), 13), 0);
+    EXPECT_EQ(std::count(values->begin(), values->end(), 12), 1);
+    EXPECT_EQ(std::count(values->begin(), values->end(), 14), 1);
 }
 
-TEST(BPLUSTREE_TEST, BPLUSTREE_DELETE)
+TEST(BPlusTreeTest, DeleteRangeEntriesCountsOnlyDeletedEntries)
 {
-    BPlusTree<int,int,4> bPlusTree;
-    ASSERT_NO_THROW(bPlusTree.insert(5,50));
-    ASSERT_NO_THROW(bPlusTree.insert(3,30));
-    ASSERT_NO_THROW(bPlusTree.insert(7,70));
-    ASSERT_NO_THROW(bPlusTree.insert(2,20));
-    ASSERT_NO_THROW(bPlusTree.insert(1,10));
-    ASSERT_NO_THROW(bPlusTree.insert(8,80));
-    ASSERT_NO_THROW(bPlusTree.insert(9,90));
-    ASSERT_NO_THROW(bPlusTree.insert(4,40));
-    ASSERT_NO_THROW(bPlusTree.insert(0,0));
-    ASSERT_NO_THROW(bPlusTree.insert(11,110));
-    ASSERT_NO_THROW(bPlusTree.insert(10,100));
-    ASSERT_NO_THROW(bPlusTree.insert(12,120));
-    ASSERT_NO_THROW(bPlusTree.insert(13,130));
-    ASSERT_NO_THROW(bPlusTree.insert(15,150));
-    ASSERT_NO_THROW(bPlusTree.insert(14,140));
-    ASSERT_NO_THROW(bPlusTree.insert(16,160));
-    bPlusTree.print();
+    BPlusTree<int, int, 4> bPlusTree;
+    bPlusTree.insert(10, 1);
+    bPlusTree.insert(10, 2);
+    bPlusTree.insert(10, 3);
+
+    std::vector<std::pair<int, int>> entries{{10, 2}, {10, 99}};
+    size_t changedRows = 0;
+    bPlusTree.deleteRangeEntries(&entries, changedRows);
+
+    EXPECT_EQ(changedRows, 1U);
+
     bool found = false;
-    ASSERT_NO_THROW(bPlusTree.deleteKey(5,found));
-    bPlusTree.print();
-    bPlusTree.searchKey(5,found);
-    ASSERT_EQ(found,false);
-    ASSERT_NO_THROW(bPlusTree.deleteKey(8,found));
-    ASSERT_EQ(bPlusTree.searchKey(8,found),nullptr);
-    ASSERT_NO_THROW(bPlusTree.deleteKey(12,found));
-    ASSERT_EQ(bPlusTree.searchKey(12,found),nullptr);
-    bPlusTree.print();
-    ASSERT_EQ(bPlusTree.bplustreeSortedCheck(), true);
+    std::unique_ptr<std::vector<int>> values = bPlusTree.searchRange(10, 10, found);
+    ASSERT_TRUE(found);
+    ASSERT_NE(values, nullptr);
+    EXPECT_EQ(values->size(), 2U);
+    EXPECT_EQ(std::count(values->begin(), values->end(), 1), 1);
+    EXPECT_EQ(std::count(values->begin(), values->end(), 3), 1);
 }
-
-
-

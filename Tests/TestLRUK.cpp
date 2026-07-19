@@ -1,31 +1,33 @@
-//
-// Created by Riju Mukherjee on 02-05-2025.
-//
+﻿#include <gtest/gtest.h>
 
-#include <gtest/gtest.h>
 #include "../headers/LRUK.h"
-#include "../headers/PageCache.h"
 
-LRU_K lru_k(2);
-TEST(LRU_TEST, LRU_ACCESS_EVICT_PAGE)
+TEST(LRUKTest, EvictsPagesWithOldestKDistanceFirst)
 {
-    uint64_t logical_id = 0;
-    uint64_t timeStamp  = 0;
-    while (logical_id != 101)
-    {
-        lru_k.accessPage(logical_id++,++timeStamp);
+    LRU_K lru(2);
+    uint64_t timestamp = 0;
+    for (uint64_t logical_id = 0; logical_id <= 100; ++logical_id) {
+        lru.accessPage(logical_id, ++timestamp);
     }
-    lru_k.accessPage(100,++timeStamp);
-    lru_k.accessPage(50,++timeStamp);
-    lru_k.accessPage(25,++timeStamp);
-    lru_k.accessPage(0,++timeStamp);
-    lru_k.accessPage(1,++timeStamp);
-    lru_k.accessPage(2,++timeStamp);
 
-    uint64_t evicted_page = lru_k.evictPage();
+    lru.accessPage(100, ++timestamp);
+    lru.accessPage(50, ++timestamp);
+    lru.accessPage(25, ++timestamp);
+    lru.accessPage(0, ++timestamp);
+    lru.accessPage(1, ++timestamp);
+    lru.accessPage(2, ++timestamp);
+
+    uint64_t evicted_page = lru.evictPage();
     EXPECT_EQ(evicted_page, 99);
-    evicted_page = lru_k.evictPage();
+    evicted_page = lru.evictPage();
     EXPECT_EQ(evicted_page, 98);
-    evicted_page = lru_k.evictPage();
+    evicted_page = lru.evictPage();
     EXPECT_EQ(evicted_page, 97);
+}
+
+TEST(LRUKTest, EmptyReplacerReturnsSentinel)
+{
+    LRU_K lru(2);
+
+    EXPECT_EQ(lru.evictPage(), UINT64_MAX);
 }
