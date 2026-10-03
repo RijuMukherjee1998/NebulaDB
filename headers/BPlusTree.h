@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <shared_mutex>
 #include <utility>
 
 template<typename Key , typename Value, int Order>
@@ -23,11 +24,13 @@ class BPlusTree {
 
     struct Node {
         NodeType type;
+        mutable std::shared_mutex rw_mtx;
         explicit Node(NodeType t) : type(t) {}
         virtual ~Node() = default;
         std::shared_ptr<InternalNode> parent = nullptr;
-        virtual size_t getKeyCount() const = 0; // polymorphic
+        virtual size_t getKeyCount() const = 0;
         size_t node_getKeyCount() const { return getKeyCount(); }
+
     };
 
     struct InternalNode : Node {
@@ -57,6 +60,7 @@ public:
         if (curr == nullptr)
             return all_indices;
         while (curr != nullptr && curr->type == NodeType::INTERNAL) {
+            std::shared_lock<std::shared_mutex> r_lock(curr->rw_mtx);
             auto inode = std::static_pointer_cast<InternalNode>(curr);
             int idx = 0;
             assert(inode->getKeyCount() > 0);
@@ -64,6 +68,7 @@ public:
         }
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
         while (leaf != nullptr) {
+            std::shared_lock<std::shared_mutex> r_lock(leaf->rw_mtx);
             for (size_t i=0; i<leaf->getKeyCount(); i++) {
                 all_indices->emplace_back(std::pair<Key,Value>(leaf->keys[i],leaf->values[i]));
             }
@@ -77,24 +82,46 @@ public:
         if (!root)
         {
             auto leaf = std::make_shared<LeafNode>();
+            std::unique_lock<std::shared_mutex> w_lock(leaf->rw_mtx);
             leaf->keys.push_back(key);
             leaf->values.push_back(value);
             root = leaf;
             return;
         }
 
+        /*
+         * We are following a system where we don't want to take
+         * proactive write locks on the parent nodes which again needs to be unlocked
+         * by traversing up the tree if split is not happening.
+         * If we want to reduce the no of times we split we can increase
+         * the order of our nodes which will ensure that we split less
+         * and we keep maintaining fewer write locks on the parent and leaf.
+         * So while traversing down the tree we can take easy read locks and while getting to the
+         * actual leaf we can take a write lock there. This will ensure that the internal nodes are
+         * mostly free for reads and starvation is much lesser .
+         */
         std::shared_ptr<Node> curr = root;
         while (curr->type == NodeType::INTERNAL)
         {
+            std::shared_lock<std::shared_mutex> r_lock(curr->rw_mtx);
             auto inode = std::static_pointer_cast<InternalNode>(curr);
+
             int idx = std::lower_bound(inode->keys.begin(),
                                        inode->keys.end(),
                                        key) - inode->keys.begin();
+
+            /* check if the idx in lower_bound is within range */
             assert(idx < (int)inode->children.size());
             curr = inode->children[idx];
         }
 
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
+        /*
+         * Not using RAII for this lock because the leaf can be used in split leaf
+         * so in there we have to unlock that leaf after use and we dont want to wait till
+         * the lock goes out of scope and unlocks.
+         */
+        leaf->rw_mtx.lock();
         auto it = std::lower_bound(leaf->keys.begin(),
                                    leaf->keys.end(),
                                    key);
@@ -103,11 +130,14 @@ public:
         leaf->keys.insert(it, key);
         leaf->values.insert(leaf->values.begin() + pos, value);
 
-        // check if keys are sorted if not we have a bug
+        /* check if keys are sorted if not we have a bug */
         assert(isSorted(leaf->keys));
 
-        if (leaf->getKeyCount() >= Order)
+        if (leaf->getKeyCount() >= Order) {
             splitLeaf(leaf);
+            return;
+        }
+        leaf->rw_mtx.unlock();
     }
     std::unique_ptr<Value> searchKey(const Key& key, bool& found)
     {
@@ -117,6 +147,7 @@ public:
         if(!curr) return value;
         while (curr->type == NodeType::INTERNAL)
         {
+            std::shared_lock<std::shared_mutex> r_lock(curr->rw_mtx);
             auto inode = std::static_pointer_cast<InternalNode>(curr);
             int idx = std::upper_bound(inode->keys.begin(),
                                        inode->keys.end(),
@@ -125,6 +156,8 @@ public:
             curr = inode->children[idx];
         }
         auto leaf  = std::static_pointer_cast<LeafNode>(curr);
+        std::shared_lock<std::shared_mutex> r_lock(leaf->rw_mtx);
+
         auto it = std::lower_bound(leaf->keys.begin(),
                                    leaf->keys.end(),
                                    key);
@@ -145,6 +178,7 @@ public:
             return result;
         while(curr->type == NodeType::INTERNAL)
         {
+            std::shared_lock<std::shared_mutex> r_lock(curr->rw_mtx);
             auto inode = std::static_pointer_cast<InternalNode>(curr);
             int idx = std::lower_bound(inode->keys.begin(),
                                        inode->keys.end(),
@@ -153,12 +187,15 @@ public:
             curr = inode->children[idx];
         }
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
-        while(leaf)
-        {
+        if (leaf) {
+            leaf->rw_mtx.lock_shared();
+        }
+        while(leaf) {
             for(size_t i = 0; i < leaf->keys.size(); ++i)
             {
                 if(leaf->keys[i] > endKey)
                 {
+                    leaf->rw_mtx.unlock_shared();
                     return result;
                 }
                 if(leaf->keys[i] >= startKey && leaf->keys[i] <= endKey)
@@ -166,15 +203,20 @@ public:
                     result->emplace_back(leaf->values[i]);
                     found = true;
                 }
-
             }
+            auto old_leaf = leaf;
             leaf = leaf->next;
+            if (leaf) {
+                leaf->rw_mtx.lock_shared();
+            }
+            old_leaf->rw_mtx.unlock_shared();
         }
         return result;
     }
     std::unique_ptr<Value> deleteKey(const Key& key, bool& found)
     {
         std::shared_ptr<Node> curr = root;
+        curr->rw_mtx.lock_shared();
         size_t min_keys_leaf = std::ceil(Order / 2);
         if(!curr) return nullptr;
         found = false;
@@ -182,6 +224,7 @@ public:
         while (curr->type == NodeType::INTERNAL)
         {
             auto inode = std::static_pointer_cast<InternalNode>(curr);
+            std::shared_lock<std::shared_mutex> r_lock(inode->rw_mtx);
             int idx = std::upper_bound(inode->keys.begin(),
                                        inode->keys.end(),
                                        key) - inode->keys.begin();
@@ -189,6 +232,7 @@ public:
             curr = inode->children[idx];
         }
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
+        leaf->rw_mtx.lock();
         auto it = std::lower_bound(leaf->keys.begin(),
                                    leaf->keys.end(),
                                    key);
@@ -202,10 +246,13 @@ public:
         }
         if(leaf != root && leaf->getKeyCount() < min_keys_leaf)
         {
-            // handle leaf node underflow if necessary
-            // For simplicity, we are not implementing rebalancing in this example
+            /* handle leaf node underflow if necessary for simplicity,
+             * we are not implementing rebalancing in this example
+             */
             borrow_or_merge(leaf);
+            return deletedValue;
         }
+        leaf->rw_mtx.unlock();
         return deletedValue;
     }
     std::vector<std::pair<Key, Value>> deleteRange(const Key& startKey, const Key& endKey)
@@ -217,6 +264,7 @@ public:
         while(curr->type == NodeType::INTERNAL)
         {
             auto inode = std::static_pointer_cast<InternalNode>(curr);
+            std::shared_lock<std::shared_mutex> r_lock(inode->rw_mtx);
             int idx = std::lower_bound(inode->keys.begin(),
                                        inode->keys.end(),
                                        startKey) - inode->keys.begin();
@@ -254,8 +302,7 @@ public:
         return deletedValues;
     }
     /* Deletes a single entry */
-    void deleteEntry(const std::pair<Key, Value>& entry, bool& found)
-    {
+    void deleteEntry(const std::pair<Key, Value>& entry, bool& found) {
         found = false;
         if (!root) return;
 
@@ -265,19 +312,30 @@ public:
         std::shared_ptr<Node> curr = root;
         while (curr->type == NodeType::INTERNAL) {
             auto inode = std::static_pointer_cast<InternalNode>(curr);
+            std::shared_lock<std::shared_mutex> r_lock(inode->rw_mtx);
             int idx = std::lower_bound(inode->keys.begin(), inode->keys.end(), key) - inode->keys.begin();
             curr = inode->children[idx];
         }
 
         auto leaf = std::static_pointer_cast<LeafNode>(curr);
-
+        if (leaf)
+            leaf->rw_mtx.lock_shared();
         while (leaf->prev && !leaf->prev->keys.empty() && leaf->prev->keys.back() >= key) {
+            auto leaf_old = leaf;
             leaf = leaf->prev;
+            leaf->rw_mtx.lock_shared();
+            leaf_old->rw_mtx.unlock_shared();
         }
-
+        if (leaf) {
+            leaf->rw_mtx.unlock_shared();
+            leaf->rw_mtx.lock();
+        }
         while (leaf) {
             for (size_t pos = 0; pos < leaf->keys.size(); ++pos) {
-                if (leaf->keys[pos] > key) return;
+                if (leaf->keys[pos] > key) {
+                    leaf->rw_mtx.unlock();
+                    return;
+                }
 
                 if (leaf->keys[pos] == key && leaf->values[pos] == val) {
                     leaf->keys.erase(leaf->keys.begin() + pos);
@@ -285,13 +343,20 @@ public:
                     found = true;
 
                     if (leaf != root && leaf->getKeyCount() < std::ceil(Order / 2)) {
+                        leaf->rw_mtx.unlock();
                         borrow_or_merge(leaf);
+                        return;
                     }
+                    leaf->rw_mtx.unlock();
                     return;
                 }
             }
-
+            auto leaf_old = leaf;
             leaf = leaf->next;
+            if (leaf) {
+                leaf->rw_mtx.lock();
+            }
+            leaf_old->rw_mtx.unlock();
         }
     }
     /* This exactly deletes what is needed both key and values match */
@@ -311,11 +376,15 @@ public:
     bool bplustreeSortedCheck()
     {
         std::shared_ptr<Node> curr = root;
+        curr->rw_mtx.lock_shared();
         while (curr->type != NodeType::LEAF)
         {
             auto inode = std::static_pointer_cast<InternalNode>(curr);
-            // trying to the leftmost leaf value possible
+            /* trying to get to the leftmost leaf value possible */
+            auto curr_old = curr;
             curr = inode->children[0];
+            curr->rw_mtx.lock_shared();
+            curr_old->rw_mtx.unlock_shared();
         }
         auto lnode = std::static_pointer_cast<LeafNode>(curr);
         int64_t last_max_key = std::numeric_limits<int64_t>::min();
@@ -339,9 +408,10 @@ private:
     void borrow_or_merge(std::shared_ptr<Node> node)
     {
         if(!node) return;
+        node->rw_mtx.lock();
         if(node == root)
         {
-            // Special case for root
+            /* Special case for root */
             if(node->type == NodeType::INTERNAL)
             {
                 auto inode = std::static_pointer_cast<InternalNode>(node);
@@ -351,24 +421,37 @@ private:
                     root->parent = nullptr;
                 }
             }
+            node->rw_mtx.unlock();
             return;
         }
         size_t min_keys_internal = std::ceil(Order / 2) - 1;
         size_t min_keys_leaf = std::ceil(Order / 2);
-        // Borrowing logic to be implemented
+        /* Borrowing logic to be implemented */
         if(node->type == NodeType::LEAF)
         {
-            // Borrow from sibling leaf node
+            /* Borrow from the sibling leaf node */
             auto lnode = std::static_pointer_cast<LeafNode>(node);
-            if(lnode->prev && (lnode->parent == lnode->prev->parent) && lnode->prev->getKeyCount() > min_keys_leaf)
+            if (lnode->parent)
+                lnode->parent->rw_mtx.lock();
+            if (lnode->prev)
+                lnode->prev->rw_mtx.lock();
+            if (lnode->next)
+                lnode->next->rw_mtx.lock();
+
+            if(lnode->prev  && (lnode->parent == lnode->prev->parent) && (lnode->prev->getKeyCount() > min_keys_leaf))
             {
-                // Borrow from left sibling
+                /*immediately release the right sibling as u have nothing to do with it*/
+                if (lnode->next)
+                    lnode->next->rw_mtx.unlock();
+                /* Borrow from left sibling */
                 auto leftSibling = lnode->prev;
                 lnode->keys.insert(lnode->keys.begin(), leftSibling->keys.back());
                 lnode->values.insert(lnode->values.begin(), leftSibling->values.back());
                 leftSibling->keys.pop_back();
                 leftSibling->values.pop_back();
-                // Update parent keys
+                leftSibling->rw_mtx.unlock();
+
+                /* Update parent keys */
                 auto parent = lnode->parent;
                 if(parent)
                 {
@@ -378,17 +461,24 @@ private:
                     if(idx > 0)
                         parent->keys[idx - 1] = lnode->keys.front();
                 }
-
+                parent->rw_mtx.unlock();
+                lnode->rw_mtx.unlock();
+                return;
             }
-            else if(lnode->next && (lnode->parent == lnode->next->parent)&& lnode->next->getKeyCount() > min_keys_leaf)
+            else if(lnode->next  && (lnode->parent == lnode->next->parent) && lnode->next->getKeyCount() > min_keys_leaf)
             {
-                // Borrow from right sibling
+                /* immediately release the left sibling as u have nothing to do with it*/
+                if (lnode->prev)
+                    lnode->prev->rw_mtx.unlock();
+                /* Borrow from right sibling */
                 auto rightSibling = lnode->next;
                 lnode->keys.push_back(rightSibling->keys.front());
                 lnode->values.push_back(rightSibling->values.front());
                 rightSibling->keys.erase(rightSibling->keys.begin());
                 rightSibling->values.erase(rightSibling->values.begin());
-                // Update parent keys
+                rightSibling->rw_mtx.unlock();
+
+                /* Update parent keys */
                 auto parent = lnode->parent;
                 if(parent)
                 {
@@ -398,12 +488,15 @@ private:
                     if(idx > 0)
                         parent->keys[idx - 1] = rightSibling->keys.front();
                 }
+                parent->rw_mtx.unlock();
+                lnode->rw_mtx.unlock();
+                return;
             }
-            else{
-                // Need to merge
+            else {
+                /* Need to merge */
                 if(lnode->prev && (lnode->parent == lnode->prev->parent))
                 {
-                    // Merge with left sibling
+                    /* Merge with left sibling */
                     auto leftSibling = lnode->prev;
                     leftSibling->keys.insert(leftSibling->keys.end(),
                                              lnode->keys.begin(),
@@ -412,9 +505,13 @@ private:
                                                lnode->values.begin(),
                                                lnode->values.end());
                     leftSibling->next = lnode->next;
-                    if(lnode->next)
+                    if(lnode->next) {
                         lnode->next->prev = leftSibling;
-                    // Update parent
+                        lnode->next->rw_mtx.unlock();
+                    }
+                    lnode->prev->rw_mtx.unlock();
+
+                    /* Update parent */
                     auto parent = lnode->parent;
                     size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != lnode)
@@ -425,12 +522,20 @@ private:
                     }
                     parent->children.erase(parent->children.begin() + idx);
                     parent->keys.erase(parent->keys.begin() + idx - 1);
-                    if(parent->getKeyCount() < min_keys_internal)
+                    if(parent->getKeyCount() < min_keys_internal) {
+                        parent->rw_mtx.unlock();
                         borrow_or_merge(parent);
+                        return;
+                    }
+                    parent->rw_mtx.unlock();
+                    return;
                 }
-                else if(lnode->next && (lnode->parent == lnode->next->parent))
+                if(lnode->next && (lnode->parent == lnode->next->parent))
                 {
-                    // Merge with right sibling
+                    /*immediately release the left sibling nothing to do with it*/
+                    if (lnode->prev)
+                        lnode->prev->rw_mtx.unlock();
+                    /* Merge with right sibling */
                     auto rightSibling = lnode->next;
                     lnode->keys.insert(lnode->keys.end(),
                                        rightSibling->keys.begin(),
@@ -441,7 +546,11 @@ private:
                     lnode->next = rightSibling->next;
                     if(rightSibling->next)
                         rightSibling->next->prev = lnode;
-                    // Update parent
+
+                    rightSibling->rw_mtx.unlock();
+                    lnode->rw_mtx.unlock();
+
+                    /* Update parent */
                     auto parent = lnode->parent;
                     size_t idx = 0;
                     while(idx < parent->children.size() && parent->children[idx] != rightSibling)
@@ -452,26 +561,42 @@ private:
                     }
                     parent->children.erase(parent->children.begin() + idx);
                     parent->keys.erase(parent->keys.begin() + idx - 1);
-                    if(parent->getKeyCount() < min_keys_internal)
+                    if(parent->getKeyCount() < min_keys_internal) {
+                        parent->rw_mtx.unlock();
                         borrow_or_merge(parent);
+                        return;
+                    }
+                    return;
                 }
             }
+            lnode->rw_mtx.unlock();
+            lnode->parent->rw_mtx.unlock();
+            lnode->prev->rw_mtx.unlock();
+            lnode->next->rw_mtx.unlock();
         }
         else
         {
-            // Merge with parent internal node
+            /* Merge with parent internal node */
             auto inode = std::static_pointer_cast<InternalNode>(node);
             auto parent = inode->parent;
+
             if(!parent) return;
+            parent->rw_mtx.lock();
+
             size_t idx = 0;
-            while(idx < parent->children.size() && parent->children[idx] != inode)
+            while(idx < parent->children.size() && parent->children[idx] != inode) {
                 ++idx;
+            }
             if(idx > 0 && parent->children[idx - 1]->node_getKeyCount() > min_keys_internal)
             {
-                // Borrow from left sibling
+                /* Borrow from left sibling */
                 auto leftSibling = std::static_pointer_cast<InternalNode>(parent->children[idx - 1]);
+                leftSibling->rw_mtx.lock();
+
                 auto borrowKey = leftSibling->keys.back();
                 auto borrowChild = leftSibling->children.back();
+                borrowChild->rw_mtx.lock();
+
                 leftSibling->keys.pop_back();
                 leftSibling->children.pop_back();
                 inode->keys.insert(inode->keys.begin(), parent->keys[idx - 1]);
@@ -479,26 +604,43 @@ private:
                 borrowChild->parent = inode;
                 parent->keys[idx - 1] = borrowKey;
 
+                borrowChild->rw_mtx.unlock();
+                leftSibling->rw_mtx.unlock();
+                inode->rw_mtx.unlock();
+                parent->rw_mtx.unlock();
+                return;
             }
             else if(idx + 1 < parent->children.size() && parent->children[idx + 1]->node_getKeyCount() > min_keys_internal)
             {
-                // Borrow from right sibling
+                /* Borrow from right sibling */
                 auto rightSibling = std::static_pointer_cast<InternalNode>(parent->children[idx + 1]);
+                rightSibling->rw_mtx.lock();
+
                 auto borrowKey = rightSibling->keys.front();
                 auto borrowChild = rightSibling->children.front();
+                borrowChild->rw_mtx.lock();
+
                 rightSibling->keys.erase(rightSibling->keys.begin());
                 rightSibling->children.erase(rightSibling->children.begin());
                 inode->keys.push_back(parent->keys[idx]);
                 inode->children.push_back(borrowChild);
                 borrowChild->parent = inode;
                 parent->keys[idx] = borrowKey;
+
+                borrowChild->rw_mtx.unlock();
+                rightSibling->rw_mtx.unlock();
+                inode->rw_mtx.unlock();
+                parent->rw_mtx.unlock();
+                return;
             }
             else{
-                // Need to merge internal nodes
+                /* Need to merge internal nodes */
                 if(idx > 0)
                 {
-                    // Merge with left sibling
+                    /* Merge with left sibling */
                     auto leftSibling = std::static_pointer_cast<InternalNode>(parent->children[idx - 1]);
+                    leftSibling->rw_mtx.lock();
+
                     leftSibling->keys.push_back(parent->keys[idx - 1]);
                     leftSibling->keys.insert(leftSibling->keys.end(),
                                              inode->keys.begin(),
@@ -506,17 +648,29 @@ private:
                     leftSibling->children.insert(leftSibling->children.end(),
                                                  inode->children.begin(),
                                                  inode->children.end());
-                    for(auto& child : inode->children)
+                    for(auto& child : inode->children) {
+                        child->rw_mtx.lock();
                         child->parent = leftSibling;
+                        child->rw_mtx.unlock();
+                    }
+                    leftSibling->rw_mtx.unlock();
+                    inode->rw_mtx.unlock();
+
                     parent->children.erase(parent->children.begin() + idx);
                     parent->keys.erase(parent->keys.begin() + idx - 1);
-                    if(parent->getKeyCount() < min_keys_internal)
+                    if(parent->getKeyCount() < min_keys_internal) {
+                        parent->rw_mtx.unlock();
                         borrow_or_merge(parent);
+                        return;
+                    }
+                    parent->rw_mtx.unlock();
+                    return;
                 }
                 else if(idx + 1 < parent->children.size())
                 {
-                    // Merge with right sibling
+                    /* Merge with right sibling */
                     auto rightSibling = std::static_pointer_cast<InternalNode>(parent->children[idx + 1]);
+                    rightSibling->rw_mtx.lock();
                     inode->keys.push_back(parent->keys[idx]);
                     inode->keys.insert(inode->keys.end(),
                                        rightSibling->keys.begin(),
@@ -524,15 +678,27 @@ private:
                     inode->children.insert(inode->children.end(),
                                            rightSibling->children.begin(),
                                            rightSibling->children.end());
-                    for(auto& child : rightSibling->children)
+                    for(auto& child : rightSibling->children) {
+                        child->rw_mtx.lock();
                         child->parent = inode;
+                        child->rw_mtx.unlock();
+                    }
+                    rightSibling->rw_mtx.unlock();
+                    inode->rw_mtx.unlock();
+
                     parent->children.erase(parent->children.begin() + idx + 1);
                     parent->keys.erase(parent->keys.begin() + idx);
-                    if(parent->getKeyCount() < min_keys_internal)
+                    if(parent->getKeyCount() < min_keys_internal) {
+                        parent->rw_mtx.unlock();
                         borrow_or_merge(parent);
+                        return;
+                    }
+                    parent->rw_mtx.unlock();
+                    return;
                 }
             }
-
+            inode->rw_mtx.unlock();
+            parent->rw_mtx.unlock();
         }
     }
     void splitLeaf(std::shared_ptr<LeafNode> lnode)
@@ -559,10 +725,13 @@ private:
             lnode->parent = newRoot;
             newLeaf->parent = newRoot;
             root = newRoot;
+            lnode->rw_mtx.unlock();
             return;
         }
-
         auto parent = lnode->parent;
+        parent->rw_mtx.lock();
+        lnode->rw_mtx.unlock();
+
         Key promoteKey = newLeaf->keys.front();
 
         auto it = std::lower_bound(parent->keys.begin(),
@@ -575,8 +744,11 @@ private:
         assert(isSorted(parent->keys));
         newLeaf->parent = parent;
 
-        if (parent->getKeyCount() >= Order)
+        if (parent->getKeyCount() >= Order) {
             splitInternal(parent);
+            return;
+        }
+        parent->rw_mtx.unlock();
     }
 
     void splitInternal(std::shared_ptr<InternalNode> inode)
@@ -603,10 +775,14 @@ private:
             inode->parent = newRoot;
             newInode->parent = newRoot;
             root = newRoot;
+            inode->rw_mtx.unlock();
             return;
         }
 
         auto parent = inode->parent;
+        parent->rw_mtx.lock();
+        inode->rw_mtx.unlock();
+
         auto it = std::lower_bound(parent->keys.begin(),
                                    parent->keys.end(),
                                    promoteKey);
@@ -617,8 +793,11 @@ private:
         assert(isSorted(parent->keys));
         newInode->parent = parent;
 
-        if (parent->getKeyCount() >= Order)
+        if (parent->getKeyCount() >= Order) {
             splitInternal(parent);
+            return;
+        }
+        parent->rw_mtx.unlock();
     }
 
     void printNode(std::shared_ptr<Node> node, int level) const

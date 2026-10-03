@@ -50,4 +50,9 @@ struct Filter{
     std::vector<QueryEngine::ExecCondition> col_filter;
 };
 
+enum PAGE_MODE {
+    READ = 0,
+    WRITE,
+};
+
 #endif

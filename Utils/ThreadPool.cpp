@@ -5,11 +5,17 @@
 
 ThreadPool* ThreadPool::instance = nullptr;
 
+
 // Get the instance
 ThreadPool* ThreadPool::getInstance()
 {
-    if (instance == nullptr)
-        instance = new ThreadPool(std::thread::hardware_concurrency());
+    static std::mutex inst_mtx;
+    if (instance == nullptr) {
+        std::unique_lock<std::mutex> lock(inst_mtx);
+        if (instance == nullptr) {
+            instance = new ThreadPool(std::thread::hardware_concurrency());
+        }
+    }
     return instance;
 }
 // Constructor

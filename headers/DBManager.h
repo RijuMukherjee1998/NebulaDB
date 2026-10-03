@@ -44,6 +44,7 @@ namespace Manager {
         void executeQueryOnTable(InternalQuery::TableQuery &tbl_query);
 
     private:
+        static inline std::mutex mut_db;
         Manager::TableManager* cacheTableManager(const std::string* table_name);
     };
 

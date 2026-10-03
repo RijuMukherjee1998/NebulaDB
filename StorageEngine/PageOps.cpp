@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include "../headers/PageOps.h"
+#include "../headers/NDBExceptions.h"
 
 StorageEngine::PageOps::PageOps(Schema* schema, PageDirectory* pg_dir, QueryEngine::IndexTableType* it)
     : PageOps({}, {}, schema, pg_dir, it)
@@ -64,10 +65,11 @@ ROW_ID StorageEngine::PageOps::InsertRow(std::vector<variant_data_t>& values)
 
     pageDir->updateOnInsert(totalBytes);
     rid.pg_id = pageDir->getCurrentLogicalPage();
-    std::shared_ptr<StorageEngine::Page> currPage = pg_cache->getPageFromCache(rid.pg_id);
+    std::shared_ptr<StorageEngine::Page> currPage;
+    auto page_guard =  pg_cache->getPageFromCache(rid.pg_id, PAGE_MODE::WRITE);
+    currPage = page_guard->getPage();
     currPage->insertIntoPage(&dataBuffer, totalBytes, rid);
     pg_cache->markPageDirty(rid.pg_id);
-    pg_cache->unPinPage(rid.pg_id);
     insertIndexedValuesForRow(cols, rid);
     return rid;
 }
@@ -79,7 +81,8 @@ void StorageEngine::PageOps::UpdateRows(QueryEngine::ExecResults& result, std::u
         using T = std::decay_t<decltype(*ptr)>; // vector<ROW_ID> or vector<ROW>
         if constexpr (std::is_same_v<T, std::vector<ROW_ID>>) {
             for (const auto& rid : *ptr) {
-                std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
+                auto page_guard = pg_cache->getPageFromCache(rid.pg_id, PAGE_MODE::WRITE);
+                std::shared_ptr<Page> page = page_guard->getPage();
                 const uint16_t row_length = page->getRowLength(rid.slot_id);
                 auto raw_data = page->getRowFromPage(rid.slot_id);
                 if (raw_data == nullptr) continue;
@@ -107,7 +110,6 @@ void StorageEngine::PageOps::UpdateRows(QueryEngine::ExecResults& result, std::u
                 bool newPageInsert = false;
                 page->updateIntoPage(rid.slot_id, dataBufferPtr, totalBytes, newPageInsert);
                 pg_cache->markPageDirty(rid.pg_id);
-                pg_cache->unPinPage(rid.pg_id);
                 if (newPageInsert) {
                     removeIndexedValuesForRow(old_cols, rid);
                     std::vector<variant_data_t> values;
@@ -152,10 +154,10 @@ void StorageEngine::PageOps::DeleteRows(QueryEngine::ExecResults& result)
             }
             removeIndexedRows(rows,rids,indexes);
             for (const auto& rid : *ptr) {
-                std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
+                auto page_guard = pg_cache->getPageFromCache(rid.pg_id, PAGE_MODE::WRITE);
+                std::shared_ptr<Page> page = page_guard->getPage();
                 page->deleteFromPage(rid.slot_id);
                 pg_cache->markPageDirty(rid.pg_id);
-                pg_cache->unPinPage(rid.pg_id);
             }
         }
     }, result);
@@ -198,8 +200,20 @@ QueryEngine::ExecResults StorageEngine::PageOps::IndexTableScan(Filter& filter)
     std::unique_ptr<std::vector<ROW_ID>> v = std::make_unique<std::vector<ROW_ID>>();
     for(auto& cond : filter.col_filter)
     {
-        // get the index first from the
-        auto index = getIndexFromIndexTable(cond.col_idx);
+        /*
+         * Thought behind this is if the index is deleted
+         * the index table can race with other threads leading
+         * to inconsistency.
+         */
+        StorageEngine::Indexer<variant_data_t,std::pair<PAGE_ID_TYPE,SLOT_ID_TYPE>>* index = nullptr;
+        {
+            std::unique_lock<std::recursive_mutex> idx_lock;
+            // get the index first from the index table
+            index = getIndexFromIndexTable(cond.col_idx);
+        }
+        if (index == nullptr) {
+            throw IndexNotFoundException("Index for this col_id " + std::to_string(cond.col_idx) + "not found in the index table");
+        }
         auto range = getSearchRangeFromCond(cond);
         index->searchIndexRange(range.first,range.second, v.get());
     }

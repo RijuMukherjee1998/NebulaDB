@@ -29,6 +29,7 @@ namespace StorageEngine {
             StorageEngine::PageDirectory* pageDir = nullptr;
             StorageEngine::PageCache* pg_cache = nullptr;
             IndexTableType * idx_tbl = nullptr;
+            static std::recursive_mutex mut_idx;
 
             static inline size_t minBytesForColumns(const std::vector<Column>& cols, const size_t start_idx, const size_t string_header_size) {
                 size_t total = 0;
@@ -198,14 +199,14 @@ namespace StorageEngine {
             }
             void getAllDataRowsFromPage(PAGE_ID_TYPE& pg_id, std::vector<std::unique_ptr<char[]>>& raw_rows, std::vector<SLOT_ID_TYPE>& all_slots, std::unique_ptr<std::vector<ROW>>& result) {
                 std::vector<uint16_t> row_lengths;
-                std::shared_ptr<Page> page = pg_cache->getPageFromCache(pg_id);
+                auto page_guard = pg_cache->getPageFromCache(pg_id,PAGE_MODE::READ);
+                std::shared_ptr<Page> page = page_guard->getPage();
                 if(page)
                 {
                     page->getAllRowsFromPage(&raw_rows, &all_slots);
                     for (const auto& slot : all_slots) {
                         row_lengths.push_back(page->getRowLength(slot));
                     }
-                    pg_cache->unPinPage(pg_id);
                 }
                 for(size_t i = 0; i < raw_rows.size(); i++)
                 {
@@ -439,12 +440,12 @@ namespace StorageEngine {
             }
 
             std::vector<Column> getRowColumns(const ROW_ID& rid) {
-                std::shared_ptr<Page> page = pg_cache->getPageFromCache(rid.pg_id);
+                auto page_guard = pg_cache->getPageFromCache(rid.pg_id, PAGE_MODE::READ);
+                std::shared_ptr<Page> page = page_guard->getPage();
                 const uint16_t row_length = page->getRowLength(rid.slot_id);
                 std::unique_ptr<char[]> raw_data = page->getRowFromPage(rid.slot_id);
                 std::vector<Column> cols = tSchema->getColumns();
                 if (raw_data == nullptr) return cols;
-                pg_cache->unPinPage(rid.pg_id);
                 bufferToValue(raw_data.get(), row_length, cols);
                 return cols;
             }

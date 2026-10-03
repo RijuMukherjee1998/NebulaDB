@@ -37,27 +37,38 @@ namespace StorageEngine
         std::filesystem::path pgDirPath;
         Utils::Logger* logger;
         std::unique_ptr<std::unordered_map<uint64_t, StorageEngine::PDEntry>>  pd_map;
+        std::array<std::mutex, PG_DIR_NUM_LATCHES> pd_latches;
         uint16_t changeCounter = 0;
     public:
         PageDirectory(const std::filesystem::path& selectedDBPath, const std::filesystem::path& selectedTablePath);
         static uint64_t getCurrentLogicalPage() {
+            /* Locking is needed as the set can alter it mid-way
+             * leading to getting the wrong value.
+             */
+            std::unique_lock<std::mutex> get_set_lock(mtx_get_set);
             return currentLogicalPage;
         }
         void loadPageDirectory() ;
-        StorageEngine::PDEntry lookUpPage(uint64_t) const;
+        StorageEngine::PDEntry lookUpPage(uint64_t);
         void updateOnInsert(const uint16_t);
-        void updateOnDelete(const uint64_t logicalPage,const uint16_t) const;
+        void updateOnDelete(const uint64_t logicalPage,const uint16_t);
         void savePageDirectory(bool forcedSave);
         void lookIntoPDMap()const;
 
     private:
-        bool findFreeSpace(uint64_t&) const;
+        bool findFreeSpace(uint64_t&);
         void serialize() override;
         std::vector<PDEntry> deserialize() override;
+        static inline std::mutex mtx_get_set;
+        std::mutex mtx_save_load;
     private:
         static uint64_t currentLogicalPage;
         static void setCurrentLogicalPage(const std::vector<PDEntry>& entries)
         {
+            /* Locking is needed as the get can get the
+             * old value or even some odd value mid way of set .
+             */
+            std::unique_lock<std::mutex> get_set_lock(mtx_get_set);
             currentLogicalPage = 0;
             for (const auto& entry : entries)
             {

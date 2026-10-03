@@ -26,4 +26,13 @@ constexpr int PAGE_SIZE = 4096;  // 4KB page size
 constexpr size_t MAX_PAGES_IN_CACHE = 8192; // 8192 page entries (space required = 32MB)
 constexpr short DIRTY_PAGE_TOLERANCE = 512; // if the number of dirty pages in cache is greater than 50% we go for a disk write
 
+
+/*Multi Threading Constants*/
+
+#define PG_DIR_NUM_LATCHES 4096
+
+// currently each page in cache has its own lock
+// reduce the no if u require less.
+#define PG_CACHE_NUM_LATCHES 8192
+
 #endif //CONSTANTS_H

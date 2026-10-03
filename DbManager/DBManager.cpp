@@ -13,6 +13,7 @@
 
 const std::filesystem::path base_path = BASE_NDB_PATH;
 
+
 Manager::DBManager::DBManager()
 {
     logger = Utils::Logger::getInstance();
@@ -237,8 +238,12 @@ void Manager::DBManager::deleteTable(const std::string* table_name)
 
 void Manager::DBManager::executeQueryOnTable(InternalQuery::TableQuery &tbl_query)
 {
-    TableManager* table_manager = cacheTableManager(&tbl_query.table_name);
+    TableManager* table_manager = nullptr;
+    {
+        std::unique_lock<std::mutex> db_lock(mut_db);
+        table_manager = cacheTableManager(&tbl_query.table_name);
+    }
     if (table_manager == nullptr)
         return;
-   table_manager->ExecuteQuery(tbl_query);
+    table_manager->ExecuteQuery(tbl_query);
 }

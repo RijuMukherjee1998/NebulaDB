@@ -113,6 +113,8 @@ add_library(nebuladb_core STATIC
         StorageEngine/PageOps.cpp
         Utils/ThreadPool.cpp
         Utils/Logger.cpp
+        headers/PageGuard.h
+        StorageEngine/PageGuard.cpp
 )
 
 target_include_directories(nebuladb_core PUBLIC
@@ -136,7 +138,9 @@ endif()
 # =========================
 # Main Executable
 # =========================
-add_executable(NebulaDB main.cpp)
+add_executable(NebulaDB main.cpp
+        headers/PageGuard.h
+        headers/NDBExceptions.h)
 target_compile_options(NebulaDB PRIVATE ${NEBULADB_WARNINGS})
 target_link_libraries(NebulaDB PRIVATE nebuladb_core)
 
@@ -153,6 +157,7 @@ if(NEBULADB_BUILD_TESTS)
             Tests/TestDBManager.cpp
             Tests/TestPageDirectory.cpp
             Tests/TestBPlusTree.cpp
+            headers/PageGuard.h
     )
 
     target_compile_options(run_tests PRIVATE ${NEBULADB_WARNINGS})

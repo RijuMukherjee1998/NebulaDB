@@ -5,9 +5,12 @@
 #include <utility>
 
 #include "../headers/PageCache.h"
+
+#include "PageGuard.h"
 #include "../headers/DiskManager.h"
 #include "../headers/ThreadPool.h"
 #include "../headers/Logger.h"
+#include "../headers/InternalStructs.h"
 
 
 namespace StorageEngine {
@@ -41,7 +44,7 @@ namespace StorageEngine {
     }
     void StorageEngine::PageCache::pinPage(const uint64_t& logicalId)
     {
-        std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
+        std::lock_guard<std::recursive_mutex> pg_cache_lock(pg_cache_latches[logicalId%PG_CACHE_NUM_LATCHES]);
         if (page_cache->find(logicalId) == page_cache->end())
         {
             logger->logCritical({"Pin Failed -> Page can't be found in cache with logical id = ", std::to_string(logicalId)});
@@ -50,25 +53,34 @@ namespace StorageEngine {
     }
     void PageCache::unPinPage(const uint64_t& logicalId)
     {
-        std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
+        std::lock_guard<std::recursive_mutex> pg_cache_lock(pg_cache_latches[logicalId%PG_CACHE_NUM_LATCHES]);
         if (page_cache->find(logicalId) == page_cache->end())
         {
             logger->logCritical({"Unpin Failed -> Page can't be found in cache with logical id = ", std::to_string(logicalId)});
         }
         (*page_cache)[logicalId]->pin_count -= 1;
     }
-    std::shared_ptr<Page> PageCache::getPageFromCache(const uint64_t logical_id)
+    std::unique_ptr<PageGuard> PageCache::getPageFromCache(const uint64_t logical_id, PAGE_MODE pg_mode)
     {
-        if (page_cache->empty() || page_cache->find(logical_id) == page_cache->end())
         {
-            loadPageIntoCache(logical_id);
+            std::lock_guard<std::recursive_mutex> pg_cache_lock(pg_cache_latches[logical_id%PG_CACHE_NUM_LATCHES]);
+            if (page_cache->empty() || page_cache->find(logical_id) == page_cache->end())
+            {
+                loadPageIntoCache(logical_id);
+            }
+            pinPage(logical_id);
+            updateLRU(logical_id);
+            if (page_cache->find(logical_id) == page_cache->end())
+                logger->logCritical({"Page can't be found in cache with logical id = ", std::to_string(logical_id)});
         }
-        pinPage(logical_id);
-        updateLRU(logical_id);
-        if (page_cache->find(logical_id) == page_cache->end())
-            logger->logCritical({"Page can't be found in cache with logical id = ", std::to_string(logical_id)});
-        std::shared_ptr<Page> page= (*page_cache)[logical_id];
-        return page;
+        /*
+         * Note:: we are implementing this in such a way that u won't even get the page for Write
+         * until all readers or even one write leave the page. And vice versa.
+         * But be careful that for a given page mode caller of the api is responsible for not doing writes
+         * while taking the page in read mode.
+         */
+        std::unique_ptr<PageGuard> pg_guard = std::make_unique<PageGuard>(*this, (*page_cache)[logical_id], logical_id, pg_rw_latches[(logical_id%PG_CACHE_NUM_LATCHES)],pg_mode);
+        return pg_guard;
     }
 
     void PageCache::loadPageIntoCache(uint64_t logical_id)
@@ -95,9 +107,10 @@ namespace StorageEngine {
 
     void PageCache::markPageDirty(uint64_t logical_id)
     {
+        std::lock_guard<std::recursive_mutex> cache_lock(pg_cache_mtx);
         if (page_cache->find(logical_id) == page_cache->end())
         {
-            logger->logWarn({"Page can't be marked dirty Weird, page dosen't exists in cache"});
+            logger->logWarn({"Page can't be marked dirty Weird, page dosen't even exists in cache"});
             return;
         }
         dirty_page_count += 1;

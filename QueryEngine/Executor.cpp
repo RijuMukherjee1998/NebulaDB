@@ -2,6 +2,8 @@
 #include <vector>
 
 #include "../headers/Executor.h"
+
+#include "NDBExceptions.h"
 #include "../headers/PageOps.h"
 
 using EC = QueryEngine::ExecutionContext;
@@ -20,7 +22,9 @@ QueryEngine::ExecResults QueryEngine::IndexNode::execute(EC& ctx)
     ExecResults results;
     StorageEngine::PageOps pg_ops(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     pg_ops.IndexColumn(col_id);
-    // Indexing is done, results are anyways thrown away ... so no need to fill them.
+    /*
+     * Indexing is done, results are anyway it's thrown away ... so no need to fill them.
+     */
     return results;
 }
 
@@ -105,21 +109,28 @@ QueryEngine::ExecResults QueryEngine::FilterNode::execute(EC& ctx)
 
 QueryEngine::ExecResults QueryEngine::IndexScanNode::execute(EC& ctx)
 {
-    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
+    StorageEngine::PageOps page_ops (ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     Filter filter;
+    ExecResults results;
     filter.col_filter = {this->exec_cond};
-    ExecResults results = page_ops->IndexTableScan(filter);
-    delete page_ops;
+    /*
+     * If index is removed by some other thread mid-ops
+     * we fall back to the full-table scan.
+     */
+    try {
+        results = page_ops.IndexTableScan(filter);
+    } catch (IndexNotFoundException& exception) {
+        results = page_ops.FullTableScan(filter);
+    }
     return results;
 }
 
 QueryEngine::ExecResults QueryEngine::SeqScanNode::execute(EC& ctx)
 {
-    StorageEngine::PageOps* page_ops = new StorageEngine::PageOps(ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
+    StorageEngine::PageOps page_ops (ctx.db_path, ctx.table_path, ctx.schema, ctx.pg_dir, ctx.idx_table);
     Filter filter;
     filter.col_filter = {this->exec_cond};
-    ExecResults results = page_ops->FullTableScan(filter);
-    delete page_ops;
+    ExecResults results = page_ops.FullTableScan(filter);
     return results;
 }
 

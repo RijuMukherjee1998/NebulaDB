@@ -22,9 +22,10 @@ StorageEngine::PageDirectory::PageDirectory(const std::filesystem::path& selecte
     currentLogicalPage = 0;
 }
 
-StorageEngine::PDEntry StorageEngine::PageDirectory::lookUpPage(const uint64_t logicalPage) const
+StorageEngine::PDEntry StorageEngine::PageDirectory::lookUpPage(const uint64_t logicalPage)
 {
     PDEntry entry;
+    std::lock_guard<std::mutex> pd_latch_lock(pd_latches[logicalPage%PG_DIR_NUM_LATCHES]);
     if (!pd_map->contains(logicalPage) || (*pd_map)[logicalPage].exists == false)
     {
         logger->logError({"No entry in pde"});
@@ -65,8 +66,9 @@ void StorageEngine::PageDirectory::updateOnInsert(const uint16_t data_size)
     (*pd_map)[currentLogicalPage] = newEntry;
     savePageDirectory(true);
 }
-void StorageEngine::PageDirectory::updateOnDelete(const uint64_t logical_page, const uint16_t data_size) const
+void StorageEngine::PageDirectory::updateOnDelete(const uint64_t logical_page, const uint16_t data_size)
 {
+    std::lock_guard<std::mutex> pd_latch_lock(pd_latches[logical_page%PG_DIR_NUM_LATCHES]);
     uint16_t pg_size = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
     if ((*pd_map)[logical_page].freeSpace == pg_size)
     {
@@ -75,8 +77,9 @@ void StorageEngine::PageDirectory::updateOnDelete(const uint64_t logical_page, c
     }
     (*pd_map)[logical_page].freeSpace += data_size;
 }
-bool StorageEngine::PageDirectory::findFreeSpace(uint64_t& logicalPage) const
+bool StorageEngine::PageDirectory::findFreeSpace(uint64_t& logicalPage)
 {
+    std::lock_guard<std::mutex> pd_latch_lock(pd_latches[logicalPage%PG_DIR_NUM_LATCHES]);
     uint16_t pg_size = PAGE_SIZE - sizeof(PageHeader) - sizeof(size_t);
     for (const auto& entry : *pd_map)
     {
@@ -91,6 +94,7 @@ bool StorageEngine::PageDirectory::findFreeSpace(uint64_t& logicalPage) const
 
 void StorageEngine::PageDirectory::savePageDirectory(bool forcedSave)
 {
+    std::lock_guard<std::mutex> pd_lock(mtx_save_load);
     if (changeCounter > 1024 || forcedSave)
     {
         changeCounter = 0;
@@ -101,6 +105,7 @@ void StorageEngine::PageDirectory::savePageDirectory(bool forcedSave)
 
 void StorageEngine::PageDirectory::loadPageDirectory()
 {
+    std::lock_guard<std::mutex> pd_lock(mtx_save_load);
     if (!std::filesystem::exists(pgDirPath))
     {
         logger->logInfo({"Page Directory Not Found ... Clean Table ... Adding pgdir.dat"});

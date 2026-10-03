@@ -89,7 +89,7 @@ namespace StorageEngine
             slot_it->isSlotValid = false;
             return;
         }
-        logger->logCritical({"Weird Page Already Deleted"});
+        logger->logCritical({"Weird Slot Already Deleted"});
     }
 
     std::unique_ptr<char[]> Page::getRowFromPage(const uint16_t slot_idx)
